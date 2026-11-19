@@ -84,7 +84,22 @@ export const content = (() => {
         setImage('#home .home-photo', home.photo);
         setImage('#home .home-bg', home.background);
         setText('.home-names', c.meta?.couple_label);
-        setText('.home-date', home.date_label);
+
+        // Label tanggal diturunkan dari date_iso supaya tidak mungkin beda
+        // dengan tanggal yang dipakai countdown / Google Calendar.
+        const iso = c.settings?.date_iso;
+        const parsed = iso ? new Date(String(iso).replace(' ', 'T')) : null;
+        const dateLabel = parsed && !Number.isNaN(parsed.getTime())
+            ? new Intl.DateTimeFormat('id-ID', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                timeZone: c.settings?.timezone || 'Asia/Jakarta',
+            }).format(parsed)
+            : home.date_label;
+
+        setText('.home-date', dateLabel);
 
         const calendar = document.getElementById('button-calendar');
         if (calendar) {
@@ -422,7 +437,9 @@ export const content = (() => {
         const settings = c.settings ?? {};
 
         if (settings.date_iso) {
-            const date = new Date(settings.date_iso);
+            // 'YYYY-MM-DD HH:mm:ss+07:00' tidak diparse konsisten di semua browser
+            // (Safari menolak format non-ISO) -> normalisasi ke 'T'.
+            const date = new Date(String(settings.date_iso).replace(' ', 'T'));
 
             if (!Number.isNaN(date.getTime())) {
                 const pad = (n) => String(n).padStart(2, '0');

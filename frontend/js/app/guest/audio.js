@@ -52,11 +52,13 @@ export const audio = (() => {
             try {
                 await audioEl.play();
                 isPlay = true;
-                music.disabled = false;
                 music.innerHTML = statePlay;
             } catch (err) {
+                // Autoplay bisa ditolak browser; tombol harus tetap bisa diklik manual.
                 isPlay = false;
                 util.notify(err).error();
+            } finally {
+                music.disabled = false;
             }
         };
 
