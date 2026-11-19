@@ -22,8 +22,9 @@ RUN chown -R www-data:www-data /var/www && \
 
 RUN composer install --prefer-dist --no-dev --optimize-autoloader --no-interaction --ignore-platform-req=ext-mongodb
 
-RUN php saya key
-RUN php saya view:cache
+# APP_KEY/JWT_KEY datang dari environment (compose), jangan di-generate saat build:
+# build tidak punya .env dan key hasil build akan terkunci di image.
+RUN php saya view:cache || true
 
 USER www-data
 
