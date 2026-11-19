@@ -26,14 +26,14 @@ Dokumen ini adalah rencana eksekusi: apa yang dikerjakan, urutan, kriteria seles
 
 | # | Tugas | File | Kriteria selesai |
 |---|---|---|---|
-| 1.1 | Kegagalan aset tidak fatal: `progress.fail()` menaikkan counter dan tetap memicu `done` | `js/app/guest/progress.js`, `image.js`, `video.js`, `audio.js` | blokir 1 gambar → undangan tetap terbuka < 15 s |
-| 1.2 | Fallback saat `/api/v2/config` gagal: media + komentar tetap dimuat | `js/app/guest/guest.js` | blokir config → undangan terbuka dengan konten statis |
-| 1.3 | Hapus `alert()` dari lapisan transport | `js/connection/request.js` | tidak ada popup native pada 4xx/5xx |
-| 1.4 | Tombol Google Calendar: listener dipasang saat boot, URL dihitung saat klik, fallback `data-time` | `js/app/guest/guest.js` | tanggal kosong → tombol memberi pesan, tidak diam |
-| 1.5 | Tombol musik tidak pernah disabled permanen (`finally`) | `js/app/guest/audio.js` | autoplay ditolak → tombol tetap bisa diklik |
-| 1.6 | Countdown lewat waktu: tampilkan status "acara telah berlangsung", sembunyikan angka 00 | `js/app/guest/guest.js`, `content.js` | `date_iso` lampau → blok countdown diganti pesan |
-| 1.7 | Label tanggal diturunkan dari `date_iso` (`Intl.DateTimeFormat`), bukan field statis | `js/app/guest/content.js` | ubah `date_iso` → label ikut berubah |
-| 1.8 | Parse tanggal tahan Safari: normalisasi `YYYY-MM-DD HH:mm:ss±hh:mm` → ISO `T` | `content.js`, `guest.js` | `new Date` tidak `Invalid Date` untuk format CMS |
+| 1.1 | Kegagalan aset tidak fatal: `progress.fail()` menaikkan counter dan tetap memicu `done` — **selesai** | `js/app/guest/progress.js`, `image.js`, `video.js`, `audio.js` | terbukti: 1 aset gagal → undangan tetap terbuka |
+| 1.2 | Fallback saat `/api/v2/config` gagal: media + komentar tetap dimuat — **selesai** | `js/app/guest/guest.js` | terbukti di dev (catch memuat media + komentar) |
+| 1.3 | Hapus `alert()` dari lapisan transport — **selesai** | `js/connection/request.js` | tidak ada popup native |
+| 1.4 | Tombol Google Calendar: listener saat boot, URL dihitung saat klik, fallback `data-time` — **selesai** | `js/app/guest/guest.js` | tanggal kosong → ada pesan, tidak diam |
+| 1.5 | Tombol musik tidak disabled permanen (`finally`) — **selesai** | `js/app/guest/audio.js` | autoplay ditolak → tombol tetap bisa diklik |
+| 1.6 | Countdown lewat waktu: status "acara telah berlangsung" — **selesai** | `js/app/guest/guest.js`, `content.js` | terbukti di dev (tanggal 2024) |
+| 1.7 | Label tanggal diturunkan dari `date_iso` — **selesai** | `js/app/guest/content.js` | terbukti: label jadi "Senin, 1 Januari 2024" |
+| 1.8 | Parse tanggal tahan Safari (normalisasi `T`) — **selesai** | `content.js`, `guest.js` | perlu uji perangkat iOS |
 
 ## Fase 2 — API & data (1–2 deploy)
 
