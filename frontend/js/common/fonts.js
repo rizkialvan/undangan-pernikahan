@@ -87,7 +87,8 @@ export const ensureFontStylesheet = (doc = document) => {
         return null;
     }
 
-    let link = doc.getElementById('cms-fonts');
+    let link = doc.getElementById('cms-fonts')
+        ?? doc.querySelector('link[rel="stylesheet"][href*="assets/fonts/fonts.css"]');
 
     if (!link) {
         link = doc.createElement('link');

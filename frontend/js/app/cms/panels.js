@@ -981,6 +981,12 @@ export const panels = (() => {
 
                 targetBtns.forEach((btn) => btn.addEventListener('click', () => {
                     state.target = btn.getAttribute('data-font-target');
+                    // Ganti target = mulai dari daftar penuh, supaya filter lama
+                    // (mis. kategori script) tidak membuat hasil pencarian kosong.
+                    state.category = 'all';
+                    state.query = '';
+                    search.value = '';
+                    catBtns.forEach((el) => el.classList.toggle('is-active', el.getAttribute('data-font-cat') === 'all'));
                     paintPreview();
                     renderGrid();
                 }));
