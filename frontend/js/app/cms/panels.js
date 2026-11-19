@@ -384,12 +384,18 @@ export const panels = (() => {
                     <div class="card-head"><div><h2>Love Story</h2><p>Timeline perjalanan hubungan.</p></div><button class="btn btn-sm" data-add-item="story.items">${icon('plus', 13)} Bagian</button></div>
                     ${storyItems || '<div class="empty"><strong>Belum ada cerita</strong></div>'}
                     <div class="sep" style="margin:14px 0;"></div>
-                    <label class="field"><span class="label">Video story (opsional)</span>
+                    <div class="field" style="margin-top:14px;">
+                        <span class="label">Video story (opsional)</span>
                         <div class="input-group">
                             <input class="input" data-bind="story.video" value="${esc(store.get('story.video', ''))}" placeholder="/api/media?f=... atau /assets/video/...">
                             <button class="btn" data-pick-media="story.video" data-kind="video">${icon('media', 13)} Pilih</button>
+                            <button class="btn btn-ghost" data-clear-media="story.video">Kosongkan</button>
                         </div>
-                    </label>
+                        <span class="hint">MP4/WebM maks 40 MB. Jika dikosongkan, blok video hilang dari undangan.</span>
+                    </div>
+                    ${store.get('story.video', '')
+                        ? `<video class="preview-video" src="${esc(store.get('story.video', ''))}" controls preload="metadata" playsinline></video>`
+                        : '<div class="note" style="margin-top:10px;">Belum ada video — tamu tidak akan melihat blok video di bagian Love Story.</div>'}
                 </div>
 
                 <div class="card">

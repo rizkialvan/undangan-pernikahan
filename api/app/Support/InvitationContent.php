@@ -249,7 +249,7 @@ final class InvitationContent
         }
 
         $out['story'] = [
-            'video' => self::url($data['story']['video'] ?? null, $defaults['story']['video']),
+            'video' => self::nullableUrl($data['story']['video'] ?? null, $defaults['story']['video']),
             'items' => [],
         ];
         foreach (array_slice(self::arr($data['story']['items'] ?? null), 0, 12) as $item) {
@@ -443,6 +443,27 @@ final class InvitationContent
         }
 
         return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
+     * Seperti url(), tapi string kosong berarti "tanpa video" (bukan default).
+     * Dipakai untuk media opsional seperti video love story.
+     */
+    private static function nullableUrl(mixed $value, string $default): string
+    {
+        if ($value === null) {
+            return $default;
+        }
+
+        if (!is_string($value)) {
+            return $default;
+        }
+
+        if (trim($value) === '') {
+            return '';
+        }
+
+        return self::url($value, $default);
     }
 
     private static function color(mixed $value, ?string $default): string

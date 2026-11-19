@@ -1870,3 +1870,13 @@ code {
         flex: 1 1 auto;
     }
 }
+
+
+.preview-video {
+    width: 100%;
+    max-height: 300px;
+    margin-top: 10px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: #000;
+}

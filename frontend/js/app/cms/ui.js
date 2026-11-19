@@ -246,7 +246,7 @@ export const ui = (() => {
                     ${icon('upload', 22)}
                     <strong>Upload file baru</strong>
                     <span>JPG, PNG, WEBP, GIF, MP3, MP4 — maks 12 MB (foto)</span>
-                    <input type="file" hidden accept="${kind === 'image' ? 'image/*' : kind === 'audio' ? 'audio/*' : '*'}" data-file>
+                    <input type="file" hidden accept="${kind === 'image' ? 'image/*' : kind === 'audio' ? 'audio/*' : kind === 'video' ? 'video/*' : '*'}" data-file>
                 </div>
                 <div data-grid><div class="skeleton" style="height:160px"></div></div>
             `,
