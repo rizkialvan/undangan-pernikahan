@@ -16,11 +16,6 @@ export const progress = (() => {
     let done = false;
 
     /**
-     * @type {Promise<void>|null}
-     */
-    let cancelProgress = null;
-
-    /**
      * @returns {void}
      */
     const add = () => {
@@ -67,7 +62,6 @@ export const progress = (() => {
 
         done = true;
         valid = false;
-        cancelProgress = null;
         document.dispatchEvent(new Event('undangan.progress.done'));
     };
 
@@ -141,9 +135,13 @@ export const progress = (() => {
     };
 
     /**
-     * @returns {Promise<void>|null}
+     * Tidak ada lagi pembatalan global: satu aset gagal tidak boleh
+     * membatalkan fetch aset lain (dulu invalid() me-resolve promise ini
+     * sehingga satu CDN mati membuat semua gambar ikut gagal).
+     *
+     * @returns {null}
      */
-    const getAbort = () => cancelProgress;
+    const getAbort = () => null;
 
     /**
      * Watchdog: jaringan lambat tidak boleh menahan tamu di layar loading.
@@ -175,7 +173,6 @@ export const progress = (() => {
         info = document.getElementById('progress-info');
         bar = document.getElementById('progress-bar');
         info?.classList.remove('d-none');
-        cancelProgress = new Promise((res) => document.addEventListener('undangan.progress.invalid', res));
         watchdog();
     };
 
