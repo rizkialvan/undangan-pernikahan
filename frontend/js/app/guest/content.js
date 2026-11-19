@@ -1,5 +1,6 @@
 import { util } from '../../common/util.js';
 import { request, HTTP_GET } from '../../connection/request.js';
+import { ensureFontStylesheet, fontStack, googleFontsUrl, isCatalogFamily } from '../../common/fonts.js';
 
 /**
  * Hidrasi konten undangan dari CMS.
@@ -388,10 +389,52 @@ export const content = (() => {
 
         if (music.enabled === false || !music.src) {
             document.body.removeAttribute('data-audio');
+            document.body.removeAttribute('data-audio-volume');
             return;
         }
 
         document.body.setAttribute('data-audio', music.src);
+
+        // Volume diatur admin lewat CMS (0-100). Di luar rentang -> biarkan default player.
+        const volume = Number(music.volume);
+
+        if (Number.isFinite(volume) && volume >= 0 && volume <= 100) {
+            document.body.setAttribute('data-audio-volume', String(Math.round(volume)));
+        } else {
+            document.body.removeAttribute('data-audio-volume');
+        }
+    };
+
+    /**
+     * Pasang font pilihan admin. Font katalog sudah self-hosted; nama font di
+     * luar katalog memakai Google Fonts seperti sebelumnya.
+     */
+    const applyFontFamily = (family, cssVariable) => {
+        const name = String(family ?? '').replace(/["'\\]/g, '').trim();
+
+        if (name === '' || !document.documentElement) {
+            return;
+        }
+
+        document.documentElement.style.setProperty(cssVariable, fontStack(name));
+
+        if (isCatalogFamily(name)) {
+            ensureFontStylesheet();
+            return;
+        }
+
+        // Fallback: font kustom di luar katalog -> muat dari Google Fonts.
+        const linkId = cssVariable === '--cms-font-body' ? 'cms-font-body' : 'cms-font';
+        let link = document.getElementById(linkId);
+
+        if (!link) {
+            link = document.createElement('link');
+            link.id = linkId;
+            link.rel = 'stylesheet';
+            document.head.appendChild(link);
+        }
+
+        link.href = googleFontsUrl(name);
     };
 
     const applyTheme = (c) => {
@@ -401,25 +444,18 @@ export const content = (() => {
             document.documentElement.setAttribute('data-bs-theme', theme.mode);
         }
 
-        if (theme.font) {
-            let link = document.getElementById('cms-font');
+        const displayFont = String(theme.font ?? '').trim();
+        const bodyFont = String(theme.font_body ?? '').trim();
 
-            if (!link) {
-                link = document.createElement('link');
-                link.id = 'cms-font';
-                link.rel = 'stylesheet';
-                document.head.appendChild(link);
-            }
-
-            link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(theme.font)}&display=swap`;
-            document.documentElement.style.setProperty('--cms-font-display', `'${String(theme.font).replace(/'/g, '')}', serif`);
-        }
+        applyFontFamily(displayFont, '--cms-font-display');
+        applyFontFamily(bodyFont, '--cms-font-body');
 
         if (theme.accent) {
             document.documentElement.style.setProperty('--cms-accent', theme.accent);
-            ensureThemeStyle(theme.accent, theme.font);
-        } else if (theme.font) {
-            ensureThemeStyle(null, theme.font);
+        }
+
+        if (theme.accent || displayFont || bodyFont) {
+            ensureThemeStyle(theme.accent || null, displayFont, bodyFont);
         }
 
         if (theme.background) {
@@ -458,7 +494,7 @@ export const content = (() => {
      * Aturan kecil untuk warna aksen & font pilihan admin.
      * Ditulis sebagai <style> supaya tidak perlu build ulang CSS.
      */
-    const ensureThemeStyle = (accent, font) => {
+    const ensureThemeStyle = (accent, font, bodyFont) => {
         let style = document.getElementById('cms-theme-style');
 
         if (!style) {
@@ -479,7 +515,15 @@ export const content = (() => {
 
         if (font) {
             rules.push(`
-                .font-esthetic, .home-title, .cover-names { font-family: '${String(font).replace(/'/g, '')}', serif !important; }
+                .font-esthetic, .home-title, .cover-names { font-family: ${fontStack(font)} !important; }
+            `);
+        }
+
+        if (bodyFont) {
+            // Font isi: berlaku untuk teks umum, tapi tidak menimpa judul
+            // (.font-esthetic) maupun tulisan arab (.arabic).
+            rules.push(`
+                body, p, .lead, .btn, .form-control { font-family: ${fontStack(bodyFont, 'sans-serif')} !important; }
             `);
         }
 

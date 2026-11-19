@@ -31,6 +31,14 @@ export const audio = (() => {
             audioEl.autoplay = false;
             audioEl.controls = false;
 
+            // Volume dari CMS (0-100). Tanpa atribut -> volume default browser.
+            const volume = document.body.getAttribute('data-audio-volume');
+            const level = Number(volume);
+
+            if (volume !== null && Number.isFinite(level) && level >= 0 && level <= 100) {
+                audioEl.volume = level / 100;
+            }
+
             progress.complete('audio');
         } catch {
             progress.invalid('audio');

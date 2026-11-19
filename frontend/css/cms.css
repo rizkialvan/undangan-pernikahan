@@ -1880,3 +1880,267 @@ code {
     border: 1px solid var(--line);
     background: #000;
 }
+
+/* ---------- tipografi (pemilih font + pratinjau) ---------- */
+
+.seg {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: #fff;
+    flex-wrap: wrap;
+}
+
+.seg-btn {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 7px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease;
+    white-space: nowrap;
+}
+
+.seg-btn:hover {
+    color: var(--ink);
+    background: var(--gold-tint);
+}
+
+.seg-btn.is-active {
+    background: var(--ink);
+    color: #fff;
+}
+
+.seg-sm .seg-btn {
+    font-size: 11.5px;
+    padding: 6px 11px;
+}
+
+.typo-preview {
+    margin: 14px 0 0;
+    padding: 26px 22px;
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    background:
+        radial-gradient(600px 220px at 50% -30%, #fff 0%, transparent 70%),
+        linear-gradient(180deg, #fdfaf3, #f7f0e2);
+    text-align: center;
+    overflow: hidden;
+}
+
+.typo-eyebrow {
+    display: block;
+    font-size: 10.5px;
+    letter-spacing: .34em;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-family: var(--font-ui);
+}
+
+.typo-names {
+    font-family: var(--font-display);
+    font-size: clamp(30px, 4.4vw, 46px);
+    line-height: 1.15;
+    color: var(--ink);
+    margin: 8px 0 4px;
+    overflow-wrap: anywhere;
+}
+
+.typo-date {
+    font-family: var(--font-display);
+    font-size: 15px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 14px;
+}
+
+.typo-body {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--ink-soft);
+    max-width: 52ch;
+    margin: 0 auto 6px;
+}
+
+.typo-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+}
+
+.typo-current {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.typo-current strong {
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.typo-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--line-strong);
+}
+
+.typo-toolbar .input {
+    max-width: 240px;
+    flex: 1 1 180px;
+}
+
+.font-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+    max-height: 420px;
+    overflow-y: auto;
+    padding: 2px;
+}
+
+.font-card {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    text-align: left;
+    padding: 11px 13px 12px;
+    border-radius: 13px;
+    border: 1px solid var(--line);
+    background: #fff;
+    cursor: pointer;
+    transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+
+.font-card:hover {
+    border-color: var(--gold-soft);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
+}
+
+.font-card.is-active {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 1px var(--gold) inset;
+    background: #fffdf7;
+}
+
+.font-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.font-card-name {
+    font-family: var(--font-ui);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    color: var(--muted);
+    text-transform: uppercase;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.font-card-check {
+    display: none;
+    color: var(--gold);
+    flex: 0 0 auto;
+}
+
+.font-card.is-active .font-card-check {
+    display: inline-flex;
+}
+
+.font-card-sample {
+    font-size: 21px;
+    line-height: 1.25;
+    color: var(--ink);
+    margin: 4px 0 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.font-card-abc {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: .02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---------- musik latar ---------- */
+
+.audio-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: #fff;
+}
+
+.audio-box.is-off {
+    opacity: .55;
+}
+
+.audio-art {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 auto;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    color: var(--gold);
+    background: var(--gold-tint);
+    border: 1px solid var(--line);
+}
+
+.audio-info {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.audio-info strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.audio-el {
+    display: none;
+}
+
+.range {
+    width: 100%;
+    accent-color: var(--gold);
+    margin-top: 4px;
+}

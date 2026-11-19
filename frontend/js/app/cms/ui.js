@@ -25,6 +25,9 @@ const ICONS = {
     logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>',
     image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>',
     music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    play: '<path d="M7 4l13 8-13 8z"/>',
+    pause: '<path d="M9 4v16M15 4v16"/>',
+    type: '<path d="M4 6h16M12 6v14M8 20h8"/>',
     link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
     heart: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/>',
     star: '<path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8-6.2-3.3-6.2 3.3L7 14.2 2 9.3l6.9-1z"/>',
@@ -268,7 +271,8 @@ export const ui = (() => {
         d.body.addEventListener('click', (e) => {
             const pick = e.target.closest('[data-pick]');
             if (pick) {
-                onSelect(pick.getAttribute('data-pick'));
+                const url = pick.getAttribute('data-pick');
+                onSelect(url, items.find((m) => m.url === url) ?? null);
                 d.close();
             }
         });
@@ -283,7 +287,7 @@ export const ui = (() => {
             try {
                 toast('Mengunggah…');
                 const media = await api.upload(file);
-                onSelect(media.url);
+                onSelect(media.url, media);
                 d.close();
             } catch (err) {
                 toast(err.message, 'error');

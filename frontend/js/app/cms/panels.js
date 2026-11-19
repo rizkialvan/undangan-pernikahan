@@ -3,6 +3,7 @@ import { store } from './store.js';
 import { ui } from './ui.js';
 import { rsvpPanel } from './rsvp.js';
 import { accountPanel } from './account.js';
+import { FONT_CATEGORIES, ensureFontStylesheet, filterFonts, fontStack } from '../../common/fonts.js';
 
 const { esc, icon } = ui;
 
@@ -746,6 +747,26 @@ export const panels = (() => {
         }
     });
 
+/* ---------- tampilan: tipografi & musik ---------- */
+
+    const DEFAULT_SONG = '/assets/music/pure-love-304010.mp3';
+    const DEFAULT_DISPLAY_FONT = 'Josefin Sans';
+
+    const fontCard = (font, active) => {
+        const stack = fontStack(font.family);
+
+        return `
+            <button class="font-card${active ? ' is-active' : ''}" type="button" data-font-pick="${esc(font.family)}" title="${esc(font.family)}">
+                <span class="font-card-top">
+                    <span class="font-card-name">${esc(font.family)}</span>
+                    <span class="font-card-check">${icon('check', 11)}</span>
+                </span>
+                <span class="font-card-sample" style="font-family:${esc(stack)}">Dinda &amp; Jose</span>
+                <span class="font-card-abc" style="font-family:${esc(stack)}">Aa Bb Cc · 15.03.2023</span>
+            </button>
+        `;
+    };
+
     const appearance = () => {
         const theme = store.get('theme', {}) ?? {};
         const presets = [
@@ -757,64 +778,390 @@ export const panels = (() => {
 
         return {
             title: 'Tampilan',
-            subtitle: 'Tema, warna, tipografi, animasi',
+            subtitle: 'Tipografi, musik, warna, dan animasi',
             html: `
-                <div class="grid grid-2">
-                    <div class="stack">
-                        <div class="card">
-                            <div class="card-head"><div><h2>Warna Aksen</h2><p>Dipakai pada tombol dan aksen garis.</p></div></div>
-                            <div class="color-row">
-                                ${presets.map((p) => `<div class="swatch ${theme.accent === p.color ? 'is-active' : ''}" style="background:${p.color}" data-swatch="${p.color}" title="${p.name}"></div>`).join('')}
-                                <input type="color" class="color-input" data-bind="theme.accent" value="${esc(theme.accent ?? '#b08d57')}">
-                            </div>
-                            <div class="grid grid-2" style="margin-top:14px;">
-                                <label class="field"><span class="label">Mode tampilan</span>
-                                    <select class="select" data-bind="theme.mode">
-                                        <option value="auto" ${theme.mode === 'auto' ? 'selected' : ''}>Ikuti sistem</option>
-                                        <option value="light" ${theme.mode === 'light' ? 'selected' : ''}>Terang</option>
-                                        <option value="dark" ${theme.mode === 'dark' ? 'selected' : ''}>Gelap</option>
-                                    </select>
-                                </label>
-                                <label class="field"><span class="label">Font judul</span>
-                                    <select class="select" data-bind="theme.font">
-                                        ${['Josefin Sans', 'Cormorant Garamond', 'Playfair Display', 'Great Vibes', 'Marcellus'].map((f) => `<option value="${f}" ${theme.font === f ? 'selected' : ''}>${f}</option>`).join('')}
-                                    </select>
-                                </label>
-                            </div>
-                            <div class="row" style="margin-top:14px;">${ui.switchField({ label: 'Animasi & confetti', bind: 'theme.animation', checked: theme.animation !== false })}</div>
+                <div class="stack">
+
+                    <!-- Tipografi -->
+                    <div class="card">
+                        <div class="card-head">
+                            <div><h2>Tipografi</h2><p>Pilih font judul dan font isi undangan. Pratinjau berubah langsung, tanpa publish.</p></div>
+                            <span class="pill" data-font-count>—</span>
                         </div>
 
-                        <div class="card">
-                            <div class="card-head"><div><h2>Musik Latar</h2><p>Diputar setelah tamu membuka undangan.</p></div></div>
-                            ${ui.switchField({ label: 'Aktifkan musik', bind: 'music.enabled', checked: store.get('music.enabled', true) !== false })}
-                            <label class="field" style="margin-top:12px;"><span class="label">Judul lagu</span><input class="input" data-bind="music.title" value="${esc(store.get('music.title', ''))}" maxlength="80"></label>
-                            <label class="field" style="margin-top:10px;"><span class="label">File audio</span>
-                                <div class="input-group">
-                                    <input class="input" data-bind="music.src" value="${esc(store.get('music.src', ''))}" placeholder="/api/media?f=...">
-                                    <button class="btn" data-pick-media="music.src" data-kind="audio">${icon('music', 13)} Pilih</button>
-                                </div>
-                            </label>
+                        <div class="typo-preview">
+                            <span class="typo-eyebrow">The Wedding Of</span>
+                            <div class="typo-names" data-preview-display>Dinda &amp; Jose</div>
+                            <p class="typo-date" data-preview-display>Rabu, 15 Maret 2023</p>
+                            <p class="typo-body" data-preview-body>Dengan memohon rahmat dan ridho Allah SWT, kami mengundang Bapak/Ibu/Saudara/i untuk menghadiri acara pernikahan kami.</p>
+                            <p class="typo-body" data-preview-body>Merupakan suatu kehormatan dan kebahagiaan bagi kami apabila Anda berkenan hadir.</p>
                         </div>
 
-                        <div class="card">
-                            <div class="card-head"><div><h2>Background</h2><p>Gambar latar seluruh halaman (opsional).</p></div></div>
-                            ${photoField('Gambar background', 'theme.background', theme.background ?? '', 'Kosongkan untuk memakai background bawaan tema.')}
+                        <div class="typo-controls">
+                            <div class="seg" role="group" aria-label="Target font">
+                                <button class="seg-btn is-active" type="button" data-font-target="theme.font">Font judul</button>
+                                <button class="seg-btn" type="button" data-font-target="theme.font_body">Font isi</button>
+                            </div>
+                            <div class="typo-current">
+                                <span>Judul: <strong data-current="theme.font">—</strong></span>
+                                <span>Isi: <strong data-current="theme.font_body">—</strong></span>
+                            </div>
+                        </div>
+
+                        <div class="typo-toolbar">
+                            <div class="seg seg-sm" role="group" aria-label="Kategori font">
+                                ${FONT_CATEGORIES.map((cat, i) => `<button class="seg-btn${i === 0 ? ' is-active' : ''}" type="button" data-font-cat="${esc(cat.key)}">${esc(cat.label)}</button>`).join('')}
+                            </div>
+                            <input class="input" type="search" data-font-search placeholder="Cari nama font…" autocomplete="off">
+                        </div>
+
+                        <div class="font-grid" data-font-grid>
+                            ${ui.skeletonRows(3)}
+                        </div>
+
+                        <div class="row" style="justify-content:space-between;margin-top:14px;">
+                            <button class="btn btn-sm btn-ghost" type="button" data-font-reset>${icon('refresh', 13)} Kembalikan bawaan</button>
+                            <span class="hint">Semua font sudah di-host sendiri — tampil tanpa menunggu CDN.</span>
                         </div>
                     </div>
 
-                    <div class="card" style="align-self:start;position:sticky;top:92px;">
-                        <div class="card-head"><div><h2>Live Preview</h2><p>Pratinjau draft sebelum publish.</p></div>
-                            <div class="row" style="gap:4px;">
-                                <button class="btn btn-sm" data-preview-go>${icon('eye', 13)} Buka</button>
-                                <button class="btn btn-sm btn-ghost" data-preview-reload>${icon('refresh', 13) || '⟳'}</button>
+                    <div class="grid grid-2">
+                        <div class="stack">
+
+                            <!-- Musik latar -->
+                            <div class="card">
+                                <div class="card-head">
+                                    <div><h2>Musik Latar</h2><p>Lagu yang diputar setelah tamu membuka undangan.</p></div>
+                                </div>
+
+                                ${ui.switchField({ label: 'Aktifkan musik', bind: 'music.enabled', checked: store.get('music.enabled', true) !== false })}
+
+                                <div class="audio-box" data-audio-wrap>
+                                    <div class="audio-art">${icon('music', 20)}</div>
+                                    <div class="audio-info">
+                                        <strong data-audio-file>—</strong>
+                                        <span class="hint" data-audio-meta>—</span>
+                                    </div>
+                                    <button class="btn btn-sm" type="button" data-audio-test>${icon('play', 13)} Uji putar</button>
+                                </div>
+                                <audio data-audio-player preload="metadata" class="audio-el"></audio>
+
+                                <label class="field" style="margin-top:14px;"><span class="label">Judul lagu</span>
+                                    <input class="input" data-bind="music.title" value="${esc(store.get('music.title', ''))}" maxlength="80" placeholder="Contoh: Pure Love">
+                                </label>
+
+                                <label class="field" style="margin-top:10px;"><span class="label">File audio</span>
+                                    <div class="input-group">
+                                        <input class="input" data-bind="music.src" value="${esc(store.get('music.src', ''))}" placeholder="/api/media?f=... atau https://...">
+                                        <button class="btn" type="button" data-audio-pick>${icon('music', 13)} Pilih</button>
+                                    </div>
+                                    <span class="hint">MP3 / M4A / WAV, maks 20 MB. Unggah langsung dari dialog "Pilih" bila lagu belum ada di galeri media.</span>
+                                </label>
+
+                                <label class="field" style="margin-top:10px;"><span class="label">Volume</span>
+                                    <input type="range" class="range" min="0" max="100" step="5" data-bind="music.volume" data-audio-volume>
+                                    <span class="hint">Volume awal saat lagu mulai diputar (tamu tetap bisa mematikan lewat tombol musik).</span>
+                                </label>
+
+                                <div class="row" style="justify-content:space-between;margin-top:8px;">
+                                    <button class="btn btn-sm btn-ghost" type="button" data-audio-default>${icon('refresh', 13)} Pakai lagu bawaan</button>
+                                    <span class="hint">Klik Save draft untuk menyimpan.</span>
+                                </div>
                             </div>
+
+                            <!-- Warna aksen -->
+                            <div class="card">
+                                <div class="card-head"><div><h2>Warna Aksen</h2><p>Dipakai pada tombol dan aksen garis.</p></div></div>
+                                <div class="color-row">
+                                    ${presets.map((p) => `<div class="swatch ${theme.accent === p.color ? 'is-active' : ''}" style="background:${p.color}" data-swatch="${p.color}" title="${p.name}"></div>`).join('')}
+                                    <input type="color" class="color-input" data-bind="theme.accent" value="${esc(theme.accent ?? '#b08d57')}">
+                                </div>
+                                <div class="grid grid-2" style="margin-top:14px;">
+                                    <label class="field"><span class="label">Mode tampilan</span>
+                                        <select class="select" data-bind="theme.mode">
+                                            <option value="auto" ${theme.mode === 'auto' ? 'selected' : ''}>Ikuti sistem</option>
+                                            <option value="light" ${theme.mode === 'light' ? 'selected' : ''}>Terang</option>
+                                            <option value="dark" ${theme.mode === 'dark' ? 'selected' : ''}>Gelap</option>
+                                        </select>
+                                    </label>
+                                </div>
+                                <div class="row" style="margin-top:14px;">${ui.switchField({ label: 'Animasi & confetti', bind: 'theme.animation', checked: theme.animation !== false })}</div>
+                            </div>
+
                         </div>
-                        <iframe class="preview-frame" data-preview src="about:blank" title="Pratinjau undangan"></iframe>
-                        <p class="hint" style="margin-top:10px;">Pratinjau memakai konten draft yang sudah disimpan (klik <strong>Save draft</strong> dulu).</p>
+
+                        <!-- Live preview -->
+                        <div class="card" style="align-self:start;position:sticky;top:92px;">
+                            <div class="card-head"><div><h2>Live Preview</h2><p>Pratinjau draft sebelum publish.</p></div>
+                                <div class="row" style="gap:4px;">
+                                    <button class="btn btn-sm" data-preview-go>${icon('eye', 13)} Buka</button>
+                                    <button class="btn btn-sm btn-ghost" data-preview-reload>${icon('refresh', 13)}</button>
+                                </div>
+                            </div>
+                            <iframe class="preview-frame" data-preview src="about:blank" title="Pratinjau undangan"></iframe>
+                            <p class="hint" style="margin-top:10px;">Pratinjau memakai konten draft yang sudah tersimpan (klik <strong>Save draft</strong> dulu).</p>
+                        </div>
+                    </div>
+
+                    <!-- Background -->
+                    <div class="card">
+                        <div class="card-head"><div><h2>Background</h2><p>Gambar latar seluruh halaman (opsional).</p></div></div>
+                        ${photoField('Gambar background', 'theme.background', theme.background ?? '', 'Kosongkan untuk memakai background bawaan tema.')}
                     </div>
                 </div>
             `,
             mount(root) {
+                /* ---------- tipografi ---------- */
+                ensureFontStylesheet();
+
+                const grid = root.querySelector('[data-font-grid]');
+                const search = root.querySelector('[data-font-search]');
+                const count = root.querySelector('[data-font-count]');
+                const catBtns = Array.from(root.querySelectorAll('[data-font-cat]'));
+                const targetBtns = Array.from(root.querySelectorAll('[data-font-target]'));
+                const state = { target: 'theme.font', category: 'all', query: '' };
+
+                const familyOf = (path) => String(store.get(path, '') ?? '');
+
+                const paintPreview = () => {
+                    const display = familyOf('theme.font');
+                    const body = familyOf('theme.font_body');
+
+                    root.querySelectorAll('[data-preview-display]').forEach((el) => {
+                        el.style.fontFamily = display ? fontStack(display) : '';
+                    });
+                    root.querySelectorAll('[data-preview-body]').forEach((el) => {
+                        el.style.fontFamily = body ? fontStack(body, 'sans-serif') : '';
+                    });
+
+                    root.querySelector('[data-current="theme.font"]').textContent = display || 'Bawaan tema';
+                    root.querySelector('[data-current="theme.font_body"]').textContent = body || 'Bawaan tema';
+
+                    targetBtns.forEach((btn) => btn.classList.toggle('is-active', btn.getAttribute('data-font-target') === state.target));
+                };
+
+                const renderGrid = () => {
+                    const list = filterFonts(state);
+                    const active = familyOf(state.target);
+
+                    grid.innerHTML = list.length
+                        ? list.map((font) => fontCard(font, font.family === active)).join('')
+                        : '<p class="hint">Nama font tidak ditemukan. Coba kata kunci lain.</p>';
+
+                    if (count) {
+                        count.textContent = `${list.length} font`;
+                    }
+                };
+
+                grid.addEventListener('click', (e) => {
+                    const card = e.target.closest('[data-font-pick]');
+
+                    if (!card) {
+                        return;
+                    }
+
+                    const picked = card.getAttribute('data-font-pick');
+                    store.set(state.target, picked);
+
+                    grid.querySelectorAll('.font-card').forEach((el) => el.classList.toggle('is-active', el === card));
+                    paintPreview();
+                    ui.toast(`${picked} dipakai untuk ${state.target === 'theme.font' ? 'font judul' : 'font isi'} — klik Save draft untuk menyimpan.`);
+                });
+
+                search.addEventListener('input', () => {
+                    state.query = search.value;
+                    renderGrid();
+                });
+
+                catBtns.forEach((btn) => btn.addEventListener('click', () => {
+                    state.category = btn.getAttribute('data-font-cat');
+                    catBtns.forEach((el) => el.classList.toggle('is-active', el === btn));
+                    renderGrid();
+                }));
+
+                targetBtns.forEach((btn) => btn.addEventListener('click', () => {
+                    state.target = btn.getAttribute('data-font-target');
+                    paintPreview();
+                    renderGrid();
+                }));
+
+                root.querySelector('[data-font-reset]').addEventListener('click', () => {
+                    store.set(state.target, state.target === 'theme.font' ? DEFAULT_DISPLAY_FONT : '');
+                    renderGrid();
+                    paintPreview();
+                });
+
+                renderGrid();
+                paintPreview();
+
+                /* ---------- musik ---------- */
+                const player = root.querySelector('[data-audio-player]');
+                const meta = root.querySelector('[data-audio-meta]');
+                const fileName = root.querySelector('[data-audio-file]');
+                const volumeInput = root.querySelector('[data-audio-volume]');
+                const titleInput = root.querySelector('[data-bind="music.title"]');
+                const enabledToggle = root.querySelector('[data-bind="music.enabled"]');
+                const testBtn = root.querySelector('[data-audio-test]');
+                const wrap = root.querySelector('[data-audio-wrap]');
+
+                const prettyName = (item, url) => {
+                    const raw = item?.original_name
+                        || decodeURIComponent(String(url ?? '').split('/').pop() ?? '').split('?')[0];
+
+                    const base = String(raw)
+                        .replace(/\.[a-z0-9]{2,5}$/i, '')
+                        .replace(/[-_]+/g, ' ')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+
+                    return base ? base.replace(/\b\w/g, (c) => c.toUpperCase()).slice(0, 80) : '';
+                };
+
+                const labelFor = (src) => {
+                    if (!src) {
+                        return 'Belum ada lagu';
+                    }
+
+                    if (src.includes('/api/media')) {
+                        return 'Lagu dari galeri media';
+                    }
+
+                    return decodeURIComponent(String(src).split('/').pop().split('?')[0]) || src;
+                };
+
+                const fmtDuration = (seconds) => {
+                    if (!Number.isFinite(seconds) || seconds <= 0) {
+                        return '';
+                    }
+
+                    const m = Math.floor(seconds / 60);
+                    const s = Math.round(seconds % 60);
+
+                    return `${m}:${String(s).padStart(2, '0')}`;
+                };
+
+                const syncAudio = () => {
+                    const src = String(store.get('music.src', '') ?? '');
+                    const rawVolume = Number(store.get('music.volume', 100));
+                    const volume = Number.isFinite(rawVolume) ? Math.min(100, Math.max(0, rawVolume)) : 100;
+                    const enabled = store.get('music.enabled', true) !== false;
+
+                    if (src) {
+                        if (player.getAttribute('src') !== src) {
+                            player.src = src;
+                            player.load();
+                        }
+                    } else {
+                        player.pause();
+                        player.removeAttribute('src');
+                        player.load();
+                    }
+
+                    player.volume = volume / 100;
+
+                    if (volumeInput) {
+                        volumeInput.value = String(volume);
+                    }
+
+                    if (fileName) {
+                        fileName.textContent = labelFor(src);
+                    }
+
+                    if (meta) {
+                        meta.textContent = src ? (fmtDuration(player.duration) || 'Menyiapkan pemutar…') : 'Undangan tampil tanpa musik.';
+                    }
+
+                    if (testBtn) {
+                        testBtn.disabled = !src;
+                    }
+
+                    wrap?.classList.toggle('is-off', !enabled);
+                };
+
+                player.addEventListener('loadedmetadata', () => {
+                    if (meta) {
+                        meta.textContent = `${fmtDuration(player.duration) || '—'} · siap diputar`;
+                    }
+                });
+
+                player.addEventListener('error', () => {
+                    if (meta && player.getAttribute('src')) {
+                        meta.textContent = 'File tidak bisa diputar — cek format atau izin akses.';
+                    }
+                });
+
+                player.addEventListener('play', () => {
+                    testBtn.innerHTML = `${icon('pause', 13)} Jeda`;
+                });
+
+                player.addEventListener('pause', () => {
+                    testBtn.innerHTML = `${icon('play', 13)} Uji putar`;
+                });
+
+                testBtn.addEventListener('click', async () => {
+                    if (!player.getAttribute('src')) {
+                        return;
+                    }
+
+                    if (player.paused) {
+                        try {
+                            await player.play();
+                        } catch (err) {
+                            ui.toast(err.message, 'error');
+                        }
+                    } else {
+                        player.pause();
+                    }
+                });
+
+                volumeInput?.addEventListener('input', () => {
+                    const level = Math.min(100, Math.max(0, Number(volumeInput.value) || 0));
+                    player.volume = level / 100;
+                });
+
+                enabledToggle?.addEventListener('change', syncAudio);
+
+                root.querySelector('[data-audio-pick]').addEventListener('click', () => {
+                    ui.pickMedia({
+                        kind: 'audio',
+                        onSelect: (url, item) => {
+                            store.set('music.src', url);
+
+                            if (!String(store.get('music.title', '') ?? '').trim()) {
+                                const guess = prettyName(item, url);
+
+                                if (guess) {
+                                    store.set('music.title', guess);
+                                    if (titleInput) titleInput.value = guess;
+                                }
+                            }
+
+                            if (store.get('music.enabled', true) === false) {
+                                store.set('music.enabled', true);
+                                if (enabledToggle) enabledToggle.checked = true;
+                            }
+
+                            syncAudio();
+                            ui.toast('Lagu dipilih — klik Save draft untuk menyimpan.');
+                        }
+                    });
+                });
+
+                root.querySelector('[data-audio-default]').addEventListener('click', () => {
+                    store.set('music.src', DEFAULT_SONG);
+                    store.set('music.title', 'Pure Love');
+                    store.set('music.enabled', true);
+
+                    if (titleInput) titleInput.value = 'Pure Love';
+                    if (enabledToggle) enabledToggle.checked = true;
+
+                    syncAudio();
+                    ui.toast('Lagu bawaan dipakai — klik Save draft untuk menyimpan.');
+                });
+
+                syncAudio();
+
+                /* ---------- preview iframe ---------- */
                 const frame = root.querySelector('[data-preview]');
                 const loadPreview = async () => {
                     try {
@@ -844,6 +1191,7 @@ export const panels = (() => {
             }
         };
     };
+
 
     const website = () => {
         const info = store.getState().info;

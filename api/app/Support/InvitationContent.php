@@ -169,11 +169,13 @@ final class InvitationContent
                 'enabled' => true,
                 'src' => '/assets/music/pure-love-304010.mp3',
                 'title' => 'Pure Love',
+                'volume' => 100,
             ],
             'theme' => [
                 'mode' => 'auto',
                 'accent' => '#8c7853',
                 'font' => 'Josefin Sans',
+                'font_body' => '',
                 'animation' => true,
                 'background' => '',
             ],
@@ -356,6 +358,7 @@ final class InvitationContent
             'enabled' => self::bool($data['music']['enabled'] ?? null, true),
             'src' => self::url($data['music']['src'] ?? null, $defaults['music']['src']),
             'title' => self::text($data['music']['title'] ?? null, $defaults['music']['title'], 80),
+            'volume' => max(0, min(100, (int) ($data['music']['volume'] ?? $defaults['music']['volume']))),
         ];
 
         $mode = self::text($data['theme']['mode'] ?? null, 'auto', 10);
@@ -367,6 +370,7 @@ final class InvitationContent
             'mode' => $mode,
             'accent' => self::color($data['theme']['accent'] ?? null, $defaults['theme']['accent']),
             'font' => self::text($data['theme']['font'] ?? null, $defaults['theme']['font'], 60),
+            'font_body' => self::text($data['theme']['font_body'] ?? null, '', 60),
             'animation' => self::bool($data['theme']['animation'] ?? null, true),
             'background' => self::url($data['theme']['background'] ?? null, ''),
         ];
