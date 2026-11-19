@@ -1,0 +1,35 @@
+# dependencies & build output
+node_modules/
+frontend/dist/
+frontend/public/
+
+# secrets & environment
+.env
+.env.*
+!.env.example
+
+# runtime data (jangan commit)
+api/vendor/
+api/storage/
+api/cache/log/*
+api/cache/env/*
+api/cache/routes/*
+api/cache/queue/*
+api/cache/views/*
+!api/cache/**/.gitignore
+
+# media pribadi / hasil upload
+frontend/assets/images/dj/
+frontend/assets/music/
+frontend/assets/video/
+
+# backup & lokal
+.backup-*/
+*.log
+*.sql.gz
+.DS_Store
+Thumbs.db
+
+# editor
+.idea/
+.vscode/

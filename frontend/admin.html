@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Studio Undangan — Admin</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#2a241d">
+    <meta name="invitation-url" content="/">
+    <link rel="icon" href="./assets/images/icon-192x192.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./css/cms.css?v=20261120cms">
+    <script defer src="./dist/cms.js?v=20261120cms"></script>
+</head>
+<body>
+
+<div class="boot" id="boot">
+    <div class="boot-inner">
+        <div class="boot-mark">D&amp;J</div>
+        Memuat studio undangan
+    </div>
+</div>
+
+<div class="login d-none" id="login">
+    <div class="login-card">
+        <div class="login-mark">D&amp;J</div>
+        <h1>Studio Undangan</h1>
+        <p>Masuk untuk mengelola seluruh konten undangan.</p>
+
+        <form id="loginForm" novalidate>
+            <div class="login-error" id="loginError"></div>
+
+            <label class="field">
+                <span class="label">Email admin</span>
+                <input class="input" id="loginEmail" type="email" autocomplete="username" placeholder="admin@metronetwork.my.id" required>
+            </label>
+
+            <label class="field">
+                <span class="label">Password</span>
+                <input class="input" id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••" required minlength="8" maxlength="20">
+            </label>
+
+            <button class="btn btn-gold" id="loginBtn" type="submit" style="width:100%;margin-top:8px;">Masuk ke Studio</button>
+        </form>
+
+        <p class="hint" style="margin-top:18px;text-align:center;">Akses khusus pemilik undangan. Sesi tersimpan di browser ini.</p>
+    </div>
+</div>
+
+<div class="app d-none" id="app">
+    <aside class="side">
+        <div class="brand">
+            <div class="brand-mark">D&amp;J</div>
+            <div class="brand-text">
+                <strong>Studio Undangan</strong>
+                <span id="brandCouple">Undangan</span>
+            </div>
+        </div>
+
+        <nav class="nav" id="nav"></nav>
+
+        <div class="side-foot">
+            <a class="side-link" href="/" target="_blank" rel="noopener">
+                <span>Lihat undangan</span>
+                <span>↗</span>
+            </a>
+            <button class="side-link" id="btnLogout" type="button">
+                <span>Keluar</span>
+                <span>⎋</span>
+            </button>
+            <div class="side-user" id="sideUser">—</div>
+        </div>
+    </aside>
+
+    <div class="main">
+        <header class="topbar">
+            <button class="mobile-toggle" id="btnMenu" type="button" aria-label="Buka menu">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+            </button>
+
+            <div class="topbar-titles">
+                <h1 id="pageTitle">Dashboard</h1>
+                <p id="pageSub">Ringkasan dan akses cepat</p>
+            </div>
+
+            <div class="topbar-actions">
+                <span class="pill is-live" id="statusPill"><span class="dot"></span>Live</span>
+                <button class="btn btn-ghost" id="btnPreview" type="button">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <span>Preview</span>
+                </button>
+                <button class="btn" id="btnSave" type="button">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+                    <span>Save draft</span>
+                </button>
+                <button class="btn btn-gold" id="btnPublish" type="button">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
+                    <span>Publish</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="view" id="view"></div>
+    </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+<div class="drawer" id="drawer"></div>
+
+</body>
+</html>

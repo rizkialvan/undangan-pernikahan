@@ -1,0 +1,57 @@
+# Git
+.git
+.gitignore
+
+# Node.js
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Build outputs (will be recreated in container)
+dist
+public
+
+# IDE/Editor
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs
+
+# Testing
+coverage
+.nyc_output
+
+# Misc
+*.md
+LICENSE
+.eslintrc*
+.stylelintrc*
+htmlhintrc*
+*.config.*
+!docker-compose.yml
+!Dockerfile
+!nginx.conf
+!.dockerignore
+
+# Docker
+Dockerfile*
+docker-compose*
+*.dockerfile
+.dockerignore
+
+# Backup
+*.bak
+*.backup
+*.tmp
+*.temp
