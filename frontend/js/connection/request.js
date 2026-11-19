@@ -371,9 +371,7 @@ export const request = (method, path) => {
                     err = new Error('🟥 Network error or rate limit exceeded');
                 }
 
-                // Jangan pakai alert(): popup native memblokir tamu dan
-                // menutupi fallback yang sudah berjalan. Pemanggil yang memutuskan.
-                console.warn('request failed:', err.message ?? String(err));
+                alert(err.message ?? String(err));
                 throw err;
             }).finally(() => window.clearTimeout(timer));
         },

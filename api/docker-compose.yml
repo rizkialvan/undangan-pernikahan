@@ -53,6 +53,8 @@ services:
       DB_PASS: "${DB_PASS}"
       JWT_EXP: "3600"
       JWT_KEY: "${JWT_KEY}"
+      WA_GATEWAY_URL: "${WA_GATEWAY_URL}"
+      WA_TOKEN: "${WA_TOKEN}"
     volumes:
       - ./storage:/var/www/storage
     networks:

@@ -6,6 +6,7 @@ use App\Controllers\Api\CommentController;
 use App\Controllers\Api\DashboardController;
 use App\Controllers\Api\GuestController;
 use App\Controllers\Api\MediaController;
+use App\Controllers\Api\WaController;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\DashboardMiddleware;
 use App\Middleware\RateLimitMiddleware;
@@ -73,6 +74,26 @@ Route::middleware([RateLimitMiddleware::class, AuthMiddleware::class])->group(fu
         // CMS — tamu
         Route::get('/admin/guests/export', [GuestController::class, 'export']);
         Route::options('/admin/guests/export');
+
+        // WhatsApp — gateway Baileys (kirim undangan personal)
+        Route::get('/admin/wa', [WaController::class, 'status']);
+        Route::post('/admin/wa/start', [WaController::class, 'start']);
+        Route::post('/admin/wa/logout', [WaController::class, 'logout']);
+        Route::get('/admin/wa/qr', [WaController::class, 'qr']);
+        Route::put('/admin/wa/settings', [WaController::class, 'saveSettings']);
+        Route::get('/admin/wa/messages', [WaController::class, 'messages']);
+        Route::post('/admin/wa/send/{id}', [WaController::class, 'send']);
+        Route::post('/admin/wa/bulk', [WaController::class, 'bulk']);
+        Route::delete('/admin/wa/queue', [WaController::class, 'cancelQueue']);
+        Route::options('/admin/wa');
+        Route::options('/admin/wa/start');
+        Route::options('/admin/wa/logout');
+        Route::options('/admin/wa/qr');
+        Route::options('/admin/wa/settings');
+        Route::options('/admin/wa/messages');
+        Route::options('/admin/wa/send/{id}');
+        Route::options('/admin/wa/bulk');
+        Route::options('/admin/wa/queue');
 
         Route::get('/admin/guests', [GuestController::class, 'index']);
         Route::post('/admin/guests', [GuestController::class, 'store']);

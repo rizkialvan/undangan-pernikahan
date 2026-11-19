@@ -125,7 +125,6 @@ export const video = (() => {
                 bar.style.backgroundColor = 'red';
                 inf.innerText = `Error loading video`;
                 console.error(err);
-                settle(true);
             });
         };
 

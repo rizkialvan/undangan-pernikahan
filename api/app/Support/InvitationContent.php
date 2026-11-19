@@ -163,7 +163,7 @@ final class InvitationContent
                 'thanks' => 'Terima kasih atas perhatian dan doa restu Anda, yang menjadi kebahagiaan serta kehormatan besar bagi kami.',
                 'greeting' => 'Wassalamualaikum Warahmatullahi Wabarakatuh',
                 'doa' => 'اَلْحَمْدُ لِلّٰهِ رَبِّ الْعٰلَمِيْنَۙ',
-                'credit' => 'Dewanakl',
+                'credit' => 'Jose & Dinda',
             ],
             'music' => [
                 'enabled' => true,

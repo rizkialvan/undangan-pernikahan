@@ -31,13 +31,7 @@ export const guest = (() => {
      * @returns {void}
      */
     const countDownDate = () => {
-        const raw = document.body.getAttribute('data-time') ?? '';
-        const count = new Date(String(raw).replace(' ', 'T')).getTime();
-
-        if (!Number.isFinite(count)) {
-            document.getElementById('cms-countdown')?.classList.add('d-none');
-            return;
-        }
+        const count = (new Date(document.body.getAttribute('data-time').replace(' ', 'T'))).getTime();
 
         /**
          * @param {number} num 
@@ -50,30 +44,9 @@ export const guest = (() => {
         const minute = document.getElementById('minute');
         const second = document.getElementById('second');
 
-        /**
-         * Acara sudah lewat: tampilkan keterangan, bukan angka 00 yang terlihat rusak.
-         * @returns {void}
-         */
-        const showPassed = () => {
-            const wrap = document.getElementById('cms-countdown');
-            if (wrap) {
-                wrap.innerHTML = '<p class="m-0 p-2" style="font-size:0.95rem;">Acara telah berlangsung — terima kasih atas doa dan kehadirannya.</p>';
-            }
-        };
-
-        if (count - Date.now() <= 0) {
-            showPassed();
-            return;
-        }
-
         const updateCountdown = () => {
             // Jangan pernah menghitung naik setelah hari H lewat.
-            const distance = count - Date.now();
-
-            if (distance <= 0) {
-                showPassed();
-                return;
-            }
+            const distance = Math.max(0, count - Date.now());
 
             day.textContent = pad(Math.floor(distance / (1000 * 60 * 60 * 24)));
             hour.textContent = pad(Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)));
@@ -278,60 +251,40 @@ export const guest = (() => {
     /**
      * @returns {void}
      */
-    /**
-     * Hitung URL Google Calendar saat diklik (bukan saat boot) supaya tanggal
-     * yang datang belakangan / fallback data-time tetap terpakai.
-     *
-     * @returns {string|null}
-     */
-    const calendarUrl = () => {
-        const cms = content.data() ?? {};
-        const raw = cms.settings?.date_iso ?? document.body.getAttribute('data-time') ?? '';
-
-        const start = new Date(String(raw).replace(' ', 'T'));
-        if (Number.isNaN(start.getTime())) {
-            return null;
-        }
-
+    const buildGoogleCalendar = () => {
         /**
-         * @param {Date} d
+         * @param {string} d 
          * @returns {string}
          */
-        const formatDate = (d) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        const formatDate = (d) => (new Date(d.replace(' ', 'T') + ':00Z')).toISOString().replace(/[-:]/g, '').split('.').shift();
+
+        const cms = content.data() ?? {};
+        const iso = cms.settings?.date_iso;
+        if (!iso) {
+            return;
+        }
+
+        const start = new Date(iso);
+        if (Number.isNaN(start.getTime())) {
+            return;
+        }
 
         const end = new Date(start.getTime() + 60 * 60 * 1000);
         const label = cms.meta?.couple_label ?? 'Wedding Invitation';
         const venue = cms.events?.venue ?? {};
 
         const url = new URL('https://calendar.google.com/calendar/render');
-        url.search = new URLSearchParams({
+        const data = new URLSearchParams({
             action: 'TEMPLATE',
             text: `The Wedding of ${label}`,
-            dates: `${formatDate(start)}/${formatDate(end)}`,
+            dates: `${formatDate(start.toISOString().slice(0, 16).replace('T', ' '))}/${formatDate(end.toISOString().slice(0, 16).replace('T', ' '))}`,
             details: cms.opening?.text ?? '',
             location: venue.address ?? '',
             ctz: cms.settings?.timezone ?? config.get('tz') ?? 'Asia/Jakarta',
-        }).toString();
-
-        return url.toString();
-    };
-
-    const buildGoogleCalendar = () => {
-        const button = document.getElementById('button-calendar');
-        if (!button) {
-            return;
-        }
-
-        button.addEventListener('click', () => {
-            const url = calendarUrl();
-
-            if (!url) {
-                util.notify('Tanggal acara belum diatur.').error();
-                return;
-            }
-
-            window.open(url, '_blank');
         });
+
+        url.search = data.toString();
+        document.getElementById('button-calendar')?.addEventListener('click', () => window.open(url, '_blank'));
     };
 
     /**
@@ -358,14 +311,7 @@ export const guest = (() => {
     /**
      * @returns {Promise<void>}
      */
-    let booted = false;
-
     const booting = async () => {
-        if (booted) {
-            return;
-        }
-
-        booted = true;
         animateSvg();
         countDownDate();
         showGuestName();
@@ -468,24 +414,7 @@ export const guest = (() => {
                     .then(() => progress.complete('comment'))
                     .catch(() => progress.invalid('comment'));
 
-            }).catch((err) => {
-                // API tidak tersedia (restart, rate limit, jaringan): jangan kunci
-                // tamu di layar loading — tampilkan undangan dengan konten statis.
-                console.warn('config gagal dimuat, lanjut tanpa API', err);
-
-                progress.complete('config');
-
-                if (img.hasDataSrc()) {
-                    img.load();
-                }
-
-                vid.load();
-                aud.load();
-                lib.load({ confetti: false });
-                comment.show()
-                    .catch(() => {})
-                    .finally(() => progress.complete('comment'));
-            });
+            }).catch(() => progress.invalid('config'));
         }
     };
 

@@ -55,8 +55,7 @@ export const image = (() => {
             res: (url) => appendImage(el, url),
             rej: (err) => {
                 console.error(err);
-                el.dataset.pLoaded = '1';
-                progress.fail('image');
+                progress.invalid('image');
             },
         });
     };
@@ -66,10 +65,7 @@ export const image = (() => {
      * @returns {void}
      */
     const getByDefault = (el) => {
-        el.onerror = () => {
-            el.dataset.pLoaded = '1';
-            progress.fail('image');
-        };
+        el.onerror = () => progress.invalid('image');
         el.onload = () => {
             el.width = el.naturalWidth;
             el.height = el.naturalHeight;
@@ -81,8 +77,7 @@ export const image = (() => {
             el.dataset.pLoaded = '1';
             progress.complete('image');
         } else if (el.complete) {
-            el.dataset.pLoaded = '1';
-            progress.fail('image');
+            progress.invalid('image');
         }
     };
 

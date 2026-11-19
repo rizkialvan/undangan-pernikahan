@@ -13,7 +13,11 @@ export const progress = (() => {
     let total = 0;
     let loaded = 0;
     let valid = true;
-    let done = false;
+
+    /**
+     * @type {Promise<void>|null}
+     */
+    let cancelProgress = null;
 
     /**
      * @returns {void}
@@ -30,160 +34,83 @@ export const progress = (() => {
     };
 
     /**
-     * @returns {void}
-     */
-    const updateBar = () => {
-        if (bar) {
-            bar.style.width = Math.min((loaded / total) * 100, 100).toString() + '%';
-        }
-    };
-
-    /**
-     * @param {string} type
-     * @param {boolean} skipped
-     * @returns {void}
-     */
-    const log = (type, skipped) => {
-        (window.__undanganProgressLog = window.__undanganProgressLog || []).push(type + ':' + loaded + '/' + total + (skipped ? ':skip' : ''));
-
-        if (info) {
-            info.innerText = `Loading ${type} ${skipped ? 'dilewati' : 'complete'} ${showInformation()}`;
-        }
-    };
-
-    /**
-     * Selesai (normal maupun karena aset dilewati): buka undangan sekali saja.
-     * @returns {void}
-     */
-    const finish = () => {
-        if (done) {
-            return;
-        }
-
-        done = true;
-        valid = false;
-        document.dispatchEvent(new Event('undangan.progress.done'));
-    };
-
-    /**
      * @param {string} type
      * @param {boolean} [skip=false]
      * @returns {void}
      */
     const complete = (type, skip = false) => {
-        if (done || loaded >= total) {
+        if (!valid || loaded >= total) {
             return;
         }
 
         loaded += 1;
-        log(type, skip);
-        updateBar();
+        (window.__undanganProgressLog = window.__undanganProgressLog || []).push(type + ':' + loaded + '/' + total);
+        info.innerText = `Loading ${type} ${skip ? 'skipped' : 'complete'} ${showInformation()}`;
+        bar.style.width = Math.min((loaded / total) * 100, 100).toString() + '%';
 
         if (loaded >= total) {
-            finish();
+            valid = false;
+            cancelProgress = null;
+            document.dispatchEvent(new Event('undangan.progress.done'));
         }
     };
 
     /**
-     * Aset gagal dimuat: jangan matikan undangan, hitung sebagai selesai (dilewati).
-     * Satu foto 404 tidak boleh membuat tamu tidak bisa masuk sama sekali.
-     *
-     * @param {string} type
-     * @returns {void}
-     */
-    const fail = (type) => {
-        if (done) {
-            return;
-        }
-
-        normalizeIfNeeded();
-
-        loaded = Math.min(loaded + 1, total);
-        log(type, true);
-        updateBar();
-
-        if (loaded >= total) {
-            finish();
-        }
-    };
-
-    /**
-     * Marker fatal lama. Dipertahankan agar pemanggil lama tetap bekerja,
-     * tetapi kini berperilaku sebagai "lewati", bukan mengunci halaman.
-     *
      * @param {string} type
      * @returns {void}
      */
     const invalid = (type) => {
-        if (done) {
-            return;
-        }
-
-        console.warn(`Aset gagal dimuat: ${type} (dilewati)`);
-        document.dispatchEvent(new Event('undangan.progress.invalid'));
-        fail(type);
-    };
-
-    /**
-     * Jaga agar counter tidak melebihi total (mis. elemen dobel dihitung dua kali).
-     * @returns {void}
-     */
-    const normalizeIfNeeded = () => {
-        if (total > 0 && loaded >= total) {
-            loaded = total - 1;
+        if (valid) {
+            valid = false;
+            bar.style.backgroundColor = 'red';
+            info.innerText = `Error loading ${type} ${showInformation()}`;
+            document.dispatchEvent(new Event('undangan.progress.invalid'));
         }
     };
 
     /**
-     * Tidak ada lagi pembatalan global: satu aset gagal tidak boleh
-     * membatalkan fetch aset lain (dulu invalid() me-resolve promise ini
-     * sehingga satu CDN mati membuat semua gambar ikut gagal).
-     *
-     * @returns {null}
+     * @returns {Promise<void>|null}
      */
-    const getAbort = () => null;
+    const getAbort = () => cancelProgress;
 
     /**
-     * Watchdog: jaringan lambat tidak boleh menahan tamu di layar loading.
-     * Setelah batas waktu, sisa aset dianggap selesai dan undangan dibuka;
-     * aset yang menyusul tetap tampil begitu termuat.
+     * Watchdog: jangan biarkan layar loading menggantung tanpa penjelasan.
+     * Kalau setelah 30 detik masih belum selesai, tampilkan status gagal + klik untuk reload.
      *
-     * @param {number} [timeout=45000]
+     * @param {number} [timeout=30000]
      * @returns {void}
      */
-    const watchdog = (timeout = 45000) => {
+    const watchdog = (timeout = 30000) => {
         window.setTimeout(() => {
-            if (done) {
+            if (!valid) {
                 return;
             }
 
-            console.warn(`Watchdog: melanjutkan tanpa menunggu aset lambat (${loaded}/${total})`);
-            loaded = total;
-            updateBar();
-
-            if (info) {
-                info.innerText = 'Melanjutkan tanpa menunggu aset lambat...';
-            }
-
-            finish();
+            valid = false;
+            bar.style.backgroundColor = 'red';
+            info.classList.remove('d-none');
+            info.style.cursor = 'pointer';
+            info.innerText = `Gagal memuat (${loaded}/${total}). Klik di sini untuk muat ulang.`;
+            info.addEventListener('click', () => window.location.reload());
+            document.dispatchEvent(new Event('undangan.progress.invalid'));
         }, timeout);
     };
 
     const init = () => {
         info = document.getElementById('progress-info');
         bar = document.getElementById('progress-bar');
-        info?.classList.remove('d-none');
+        info.classList.remove('d-none');
+        cancelProgress = new Promise((res) => document.addEventListener('undangan.progress.invalid', res));
         watchdog();
     };
 
     // Hook debug ringan untuk QA (tidak mengubah perilaku).
-    window.__undanganProgressState = () => ({ total, loaded, valid, done });
+    window.__undanganProgressState = () => ({ total, loaded, valid });
 
     return {
         init,
         add,
         invalid,
-        fail,
         complete,
         getAbort,
     };

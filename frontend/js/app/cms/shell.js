@@ -13,6 +13,7 @@ const NAV = [
     { key: 'media', label: 'Media', icon: 'media', group: 'Konten' },
     { key: 'guests', label: 'Daftar Tamu', icon: 'guests', group: 'Tamu' },
     { key: 'rsvp', label: 'Ucapan & RSVP', icon: 'heart', group: 'Tamu' },
+    { key: 'wa', label: 'Kirim WhatsApp', icon: 'whatsapp', group: 'Tamu' },
     { key: 'appearance', label: 'Tampilan', icon: 'appearance', group: 'Website' },
     { key: 'website', label: 'Publikasi', icon: 'website', group: 'Website' },
     { key: 'account', label: 'Akun & Keamanan', icon: 'logout', group: 'Website' }

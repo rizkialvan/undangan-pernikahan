@@ -173,6 +173,15 @@ export const api = (() => {
         updateGuest: (id, payload) => request('PUT', '/api/admin/guests/' + id, { body: payload }),
         deleteGuest: (id) => request('DELETE', '/api/admin/guests/' + id),
         markSent: (id) => request('POST', '/api/admin/guests/' + id + '/sent'),
+        waStatus: () => request('GET', '/api/admin/wa'),
+        waStart: () => request('POST', '/api/admin/wa/start'),
+        waLogout: () => request('POST', '/api/admin/wa/logout'),
+        waQr: () => request('GET', '/api/admin/wa/qr'),
+        waSaveSettings: (payload) => request('PUT', '/api/admin/wa/settings', { body: payload }),
+        waSend: (id) => request('POST', '/api/admin/wa/send/' + id),
+        waBulk: (payload) => request('POST', '/api/admin/wa/bulk', { body: payload }),
+        waCancel: () => request('DELETE', '/api/admin/wa/queue'),
+        waMessages: () => request('GET', '/api/admin/wa/messages'),
 
         // --- Moderasi ucapan & RSVP ---
         comments: ({ per = 10, next = 0, q = '' } = {}) => {

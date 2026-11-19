@@ -599,11 +599,16 @@ export const panels = (() => {
                     </div>
                     <div class="row" style="gap:6px;">
                         <button class="btn btn-sm" data-export>${icon('download', 13)} Export CSV</button>
+                        <button class="btn btn-sm" data-wa-all>${icon('whatsapp', 13)} Kirim ke semua</button>
                         <button class="btn btn-sm btn-gold" data-add>${icon('plus', 13)} Tambah tamu</button>
                     </div>
                 </div>
             </div>
             <div class="card" style="padding:0;overflow:hidden;">
+                <div class="row" style="padding:10px 16px;border-bottom:1px solid var(--line);gap:8px;justify-content:space-between;">
+                    <span class="muted tiny" data-sel-count>0 dipilih</span>
+                    <button class="btn btn-sm btn-gold" data-bulk disabled>${icon('whatsapp', 13)} Kirim WA ke terpilih</button>
+                </div>
                 <div data-table><div class="skeleton" style="height:180px;margin:18px"></div></div>
             </div>
         `,
@@ -611,6 +616,40 @@ export const panels = (() => {
             const holder = root.querySelector('[data-table]');
             let query = '';
             let timer = null;
+
+            const sendWa = async (targets) => {
+                const withPhone = targets.filter((g) => (g.phone ?? '').trim() !== '');
+
+                if (withPhone.length === 0) {
+                    ui.toast('Tamu terpilih belum punya nomor WhatsApp', 'error');
+                    return;
+                }
+
+                const single = withPhone.length === 1;
+                const ok = await ui.confirm({
+                    title: single ? 'Kirim undangan?' : `Kirim ke ${withPhone.length} tamu?`,
+                    message: single
+                        ? `Undangan masuk antrean untuk ${withPhone[0].name} (${withPhone[0].phone}).`
+                        : `${withPhone.length} tamu akan masuk antrean. Pengiriman dipacing otomatis (delay acak + kuota harian) supaya nomor tidak diblokir.`,
+                    confirmLabel: 'Masukkan antrean'
+                });
+
+                if (!ok) {
+                    return;
+                }
+
+                try {
+                    const res = single
+                        ? await api.waSend(withPhone[0].id)
+                        : await api.waBulk({ ids: withPhone.map((g) => g.id) });
+
+                    const skipped = res.skipped ? `, dilewati ${res.skipped}` : '';
+                    ui.toast(`Masuk antrean: ${res.queued ?? 1}${skipped}`);
+                    load();
+                } catch (err) {
+                    ui.toast(err.message, 'error');
+                }
+            };
 
             const load = async () => {
                 try {
@@ -625,10 +664,11 @@ export const panels = (() => {
                     holder.innerHTML = `
                         <div class="table-wrap" style="border:0;">
                             <table>
-                                <thead><tr><th>Nama</th><th>Kategori</th><th>WhatsApp</th><th>RSVP</th><th></th></tr></thead>
+                                <thead><tr><th style="width:26px;"><input type="checkbox" data-check-all aria-label="Pilih semua"></th><th>Nama</th><th>Kategori</th><th>WhatsApp</th><th>RSVP</th><th></th></tr></thead>
                                 <tbody>
                                     ${items.map((g) => `
                                         <tr data-id="${g.id}">
+                                            <td><input type="checkbox" data-sel value="${g.id}" aria-label="Pilih ${esc(g.name)}"></td>
                                             <td>
                                                 <div class="cell-name">${esc(g.name)}</div>
                                                 <div class="cell-sub">${esc(g.link).slice(0, 44)}…</div>
@@ -642,6 +682,7 @@ export const panels = (() => {
                                                     : '<span class="badge is-red">Tidak hadir</span>'}</td>
                                             <td>
                                                 <div class="row-actions">
+                                                    ${g.phone ? `<button class="icon-btn" data-wa-send title="Kirim undangan via WhatsApp">${icon('whatsapp', 14)}</button>` : ''}
                                                     <button class="icon-btn" data-copy-link title="Salin link">${icon('link', 14)}</button>
                                                     <button class="icon-btn" data-edit title="Edit">${icon('edit', 14)}</button>
                                                     <button class="icon-btn" data-del title="Hapus">${icon('trash', 14)}</button>
@@ -673,7 +714,29 @@ export const panels = (() => {
                             }
                         });
                         row.querySelector('[data-edit]').addEventListener('click', () => openForm(item));
+                        row.querySelector('[data-wa-send]')?.addEventListener('click', () => sendWa([item]));
                     });
+
+                    const selCount = root.querySelector('[data-sel-count]');
+                    const bulkBtn = root.querySelector('[data-bulk]');
+                    const checkAll = holder.querySelector('[data-check-all]');
+                    const selectedItems = () => [...holder.querySelectorAll('[data-sel]:checked')]
+                        .map((el) => items.find((g) => g.id === Number(el.value)))
+                        .filter(Boolean);
+
+                    const syncSel = () => {
+                        const n = holder.querySelectorAll('[data-sel]:checked').length;
+                        if (selCount) selCount.textContent = `${n} dipilih`;
+                        if (bulkBtn) bulkBtn.disabled = n === 0;
+                    };
+
+                    holder.querySelectorAll('[data-sel]').forEach((el) => el.addEventListener('change', syncSel));
+                    checkAll?.addEventListener('change', () => {
+                        holder.querySelectorAll('[data-sel]').forEach((el) => { el.checked = checkAll.checked; });
+                        syncSel();
+                    });
+                    bulkBtn?.addEventListener('click', () => sendWa(selectedItems()));
+                    syncSel();
                 } catch (err) {
                     holder.innerHTML = `<div class="empty">${esc(err.message)}</div>`;
                 }
@@ -729,6 +792,26 @@ export const panels = (() => {
                 try {
                     await api.exportGuests();
                     ui.toast('CSV diunduh');
+                } catch (err) {
+                    ui.toast(err.message, 'error');
+                }
+            });
+
+            root.querySelector('[data-wa-all]')?.addEventListener('click', async () => {
+                const ok = await ui.confirm({
+                    title: 'Kirim ke semua tamu?',
+                    message: 'Semua tamu yang punya nomor dan belum pernah dikirimi akan masuk antrean. Pengiriman dipacing otomatis sesuai kuota harian.',
+                    confirmLabel: 'Masukkan antrean'
+                });
+
+                if (!ok) {
+                    return;
+                }
+
+                try {
+                    const res = await api.waBulk({ all: true });
+                    ui.toast(`Masuk antrean: ${res.queued}, dilewati ${res.skipped}`);
+                    load();
                 } catch (err) {
                     ui.toast(err.message, 'error');
                 }
@@ -1267,6 +1350,279 @@ export const panels = (() => {
         };
     };
 
+    /* ---------- WhatsApp: sesi, antrean, pengaturan anti-blokir ---------- */
+
+    const waPanel = () => ({
+        title: 'Kirim WhatsApp',
+        subtitle: 'Sesi WhatsApp, antrean kirim, dan proteksi anti-blokir',
+        html: '<div data-wa-root><div class="skeleton" style="height:180px"></div></div>',
+        mount(root) {
+            const holder = root.querySelector('[data-wa-root]');
+            let timer = null;
+
+            const fmt = (v) => (v ? String(v).replace('T', ' ').slice(0, 16) : '—');
+
+            const badge = (s) => {
+                const map = {
+                    connected: ['is-green', 'Terhubung'],
+                    qr: ['is-gold', 'Menunggu scan QR'],
+                    connecting: ['is-grey', 'Menghubungkan…'],
+                    disconnected: ['is-red', 'Tidak terhubung']
+                };
+                const item = map[s] ?? ['is-grey', s || '—'];
+
+                return '<span class="badge ' + item[0] + '">' + esc(item[1]) + '</span>';
+            };
+
+            const tile = (label, value, sub = '') => `
+                <div style="border:1px solid var(--line);border-radius:12px;padding:10px 12px;">
+                    <div class="muted tiny">${esc(label)}</div>
+                    <div style="font-size:1.15rem;font-weight:600;">${esc(String(value))}</div>
+                    ${sub ? `<div class="muted tiny">${esc(sub)}</div>` : ''}
+                </div>
+            `;
+
+            const openQr = () => {
+                const d = ui.drawer({
+                    title: 'Scan QR WhatsApp',
+                    subtitle: 'WhatsApp → Perangkat Tertaut → Tautkan perangkat',
+                    body: `
+                        <div style="text-align:center;">
+                            <div data-qr-box style="display:inline-block;padding:12px;background:#fff;border-radius:14px;">
+                                <div class="skeleton" style="width:240px;height:240px;"></div>
+                            </div>
+                            <p class="muted tiny" data-qr-note style="margin-top:10px;">Menyiapkan QR…</p>
+                        </div>
+                    `,
+                    foot: '<button class="btn btn-ghost" data-close>Tutup</button>'
+                });
+
+                const box = d.body.querySelector('[data-qr-box]');
+                const note = d.body.querySelector('[data-qr-note]');
+
+                const tick = async () => {
+                    try {
+                        const res = await api.waQr();
+
+                        if (res.status === 'connected') {
+                            clearInterval(timer);
+                            d.close();
+                            ui.toast('WhatsApp terhubung');
+                            render();
+                            return;
+                        }
+
+                        if (res.qr) {
+                            box.innerHTML = '<img alt="QR WhatsApp" width="240" height="240" src="' + res.qr + '">';
+                            note.textContent = 'QR diperbarui otomatis. Scan sebelum kedaluwarsa.';
+                        } else {
+                            note.textContent = 'Menunggu QR dari gateway…';
+                        }
+                    } catch (err) {
+                        note.textContent = err.message;
+                    }
+                };
+
+                clearInterval(timer);
+                tick();
+                timer = setInterval(tick, 4000);
+            };
+
+            const loadLog = async () => {
+                const box = holder.querySelector('[data-log]');
+                if (!box) return;
+
+                try {
+                    const data = await api.waMessages();
+                    const items = data.items ?? [];
+
+                    if (items.length === 0) {
+                        box.innerHTML = '<div class="empty" style="padding:20px;">Belum ada pesan.</div>';
+                        return;
+                    }
+
+                    const cls = (s) => ({ sent: 'is-green', queued: 'is-gold', sending: 'is-grey', failed: 'is-red', skipped: 'is-grey', canceled: 'is-grey' }[s] ?? 'is-grey');
+
+                    box.innerHTML = `
+                        <div class="table-wrap" style="border:0;">
+                            <table>
+                                <thead><tr><th>Tamu</th><th>Nomor</th><th>Status</th><th>Waktu</th><th>Catatan</th></tr></thead>
+                                <tbody>
+                                    ${items.map((m) => `
+                                        <tr>
+                                            <td>${esc(m.name ?? '—')}</td>
+                                            <td>${esc(m.phone ?? '—')}</td>
+                                            <td><span class="badge ${cls(m.status)}">${esc(m.status)}</span></td>
+                                            <td class="muted tiny">${esc(fmt(m.sent_at ?? m.created_at))}</td>
+                                            <td class="muted tiny">${esc(m.error ?? '')}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                } catch (err) {
+                    box.innerHTML = '<div class="empty" style="padding:20px;">' + esc(err.message) + '</div>';
+                }
+            };
+
+            const wire = () => {
+                holder.querySelector('[data-connect]')?.addEventListener('click', async (e) => {
+                    const btn = e.currentTarget;
+                    btn.disabled = true;
+
+                    try {
+                        await api.waStart();
+                        openQr();
+                    } catch (err) {
+                        ui.toast(err.message, 'error');
+                    } finally {
+                        btn.disabled = false;
+                    }
+                });
+
+                holder.querySelector('[data-logout]')?.addEventListener('click', async () => {
+                    const ok = await ui.confirm({
+                        title: 'Logout sesi WhatsApp?',
+                        message: 'Perangkat tertaut akan dilepas. Untuk mengirim lagi, kamu harus scan QR ulang.',
+                        confirmLabel: 'Logout',
+                        danger: true
+                    });
+                    if (!ok) return;
+
+                    try {
+                        await api.waLogout();
+                        ui.toast('Sesi di-logout');
+                        render();
+                    } catch (err) {
+                        ui.toast(err.message, 'error');
+                    }
+                });
+
+                holder.querySelector('[data-cancel]')?.addEventListener('click', async () => {
+                    const ok = await ui.confirm({
+                        title: 'Batalkan antrean?',
+                        message: 'Semua pesan berstatus antre akan dibatalkan. Pesan yang sedang dikirim tetap lanjut.',
+                        confirmLabel: 'Batalkan antrean',
+                        danger: true
+                    });
+                    if (!ok) return;
+
+                    try {
+                        const res = await api.waCancel();
+                        ui.toast('Dibatalkan: ' + (res.canceled ?? 0));
+                        render();
+                    } catch (err) {
+                        ui.toast(err.message, 'error');
+                    }
+                });
+
+                holder.querySelector('[data-save]')?.addEventListener('click', async () => {
+                    const payload = {
+                        template: holder.querySelector('[data-tpl]').value,
+                        delay_min: Number(holder.querySelector('[data-min]').value),
+                        delay_max: Number(holder.querySelector('[data-max]').value),
+                        daily_cap: Number(holder.querySelector('[data-cap]').value),
+                        hour_start: Number(holder.querySelector('[data-hs]').value),
+                        hour_end: Number(holder.querySelector('[data-he]').value),
+                        paused: holder.querySelector('[data-pause]').checked
+                    };
+
+                    try {
+                        await api.waSaveSettings(payload);
+                        ui.toast('Pengaturan disimpan');
+                        render();
+                    } catch (err) {
+                        ui.toast(err.message, 'error');
+                    }
+                });
+
+                holder.querySelector('[data-refresh]')?.addEventListener('click', loadLog);
+            };
+
+            const render = async () => {
+                let data = null;
+
+                try {
+                    data = await api.waStatus();
+                } catch (err) {
+                    holder.innerHTML = '<div class="empty">' + esc(err.message) + '</div>';
+                    return;
+                }
+
+                const s = data.session ?? {};
+                const cfg = data.settings ?? {};
+                const st = data.stats ?? {};
+                const gw = data.gateway ?? {};
+
+                holder.innerHTML = `
+                    <div class="card">
+                        <div class="card-head">
+                            <div><h2>Koneksi WhatsApp</h2><p>Pairing lewat QR, sesi disimpan di server.</p></div>
+                            ${badge(s.status)}
+                        </div>
+                        <div class="row" style="gap:18px;flex-wrap:wrap;align-items:center;">
+                            <div><div class="muted tiny">Nomor</div><div><strong>${esc(s.phone ?? '—')}</strong></div></div>
+                            <div><div class="muted tiny">Terhubung sejak</div><div>${esc(fmt(s.connected_at))}</div></div>
+                            <div><div class="muted tiny">Gateway</div><div>${gw.ok ? 'online' : 'offline'}</div></div>
+                        </div>
+                        ${s.last_error ? `<p class="tiny" style="color:var(--red);margin-top:10px;">${esc(s.last_error)}</p>` : ''}
+                        <div class="row" style="gap:8px;margin-top:14px;flex-wrap:wrap;">
+                            <button class="btn btn-sm btn-gold" data-connect>${icon('whatsapp', 13)} ${s.status === 'connected' ? 'Sesi aktif' : 'Hubungkan / Tampilkan QR'}</button>
+                            <button class="btn btn-sm" data-cancel>Batalkan antrean</button>
+                            <button class="btn btn-sm" data-logout>Logout sesi</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-head"><div><h2>Antrean &amp; Kuota</h2><p>Worker mengirim satu per satu dengan jeda acak.</p></div></div>
+                        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
+                            ${tile('Antrean', st.queued ?? 0)}
+                            ${tile('Terkirim hari ini', st.sent_today ?? 0)}
+                            ${tile('Sisa kuota hari ini', st.remaining_today ?? 0)}
+                            ${tile('Gagal', st.failed ?? 0)}
+                            ${tile('Dilewati', st.skipped ?? 0, 'nomor tidak valid/terdaftar')}
+                            ${tile('Estimasi', (st.eta_minutes ?? 0) + ' menit', 'untuk seluruh antrean')}
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-head"><div><h2>Pengaturan Pengiriman</h2><p>Template pesan dan batas anti-blokir.</p></div></div>
+                        <label class="field"><span class="label">Template pesan</span><textarea class="textarea" rows="7" data-tpl>${esc(cfg.template ?? '')}</textarea></label>
+                        <div class="hint">Placeholder: <code>{nama}</code> dan <code>{link}</code> — link personal unik per tamu.</div>
+                        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;">
+                            <label class="field"><span class="label">Delay min (detik)</span><input class="input" type="number" data-min value="${Number(cfg.delay_min ?? 45)}"></label>
+                            <label class="field"><span class="label">Delay max (detik)</span><input class="input" type="number" data-max value="${Number(cfg.delay_max ?? 120)}"></label>
+                            <label class="field"><span class="label">Kuota per hari</span><input class="input" type="number" data-cap value="${Number(cfg.daily_cap ?? 50)}"></label>
+                            <label class="field"><span class="label">Jam mulai</span><input class="input" type="number" data-hs value="${Number(cfg.hour_start ?? 8)}"></label>
+                            <label class="field"><span class="label">Jam selesai</span><input class="input" type="number" data-he value="${Number(cfg.hour_end ?? 21)}"></label>
+                        </div>
+                        <label class="field" style="flex-direction:row;align-items:center;gap:8px;">
+                            <input type="checkbox" data-pause ${cfg.paused ? 'checked' : ''}>
+                            <span class="label" style="margin:0;">Jeda semua pengiriman</span>
+                        </label>
+                        <div class="row" style="gap:8px;margin-top:12px;">
+                            <button class="btn btn-gold" data-save>${icon('check', 14)} Simpan pengaturan</button>
+                        </div>
+                    </div>
+
+                    <div class="card" style="padding:0;overflow:hidden;">
+                        <div class="card-head" style="padding:16px;">
+                            <div><h2>Log Pengiriman</h2><p>Pesan terakhir.</p></div>
+                            <button class="btn btn-sm" data-refresh>${icon('refresh', 13)} Muat ulang</button>
+                        </div>
+                        <div data-log><div class="skeleton" style="height:120px;margin:16px"></div></div>
+                    </div>
+                `;
+
+                wire();
+                loadLog();
+            };
+
+            render();
+        }
+    });
+
     return {
         setContext,
         dashboard,
@@ -1275,6 +1631,7 @@ export const panels = (() => {
         content,
         media,
         guests,
+        wa: waPanel,
         rsvp: () => rsvpPanel(ctxRef),
         account: () => accountPanel(ctxRef),
         appearance,
