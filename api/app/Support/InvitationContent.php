@@ -199,6 +199,9 @@ final class InvitationContent
                 'fx' => [
                     'confetti' => true,
                     'petals' => 'none',
+                    'floaters' => 'none',
+                    'floaters_image' => '',
+                    'inline_hearts' => true,
                     'intensity' => 2,
                     'overlay' => '',
                     'overlay_pos' => 'bottom',
@@ -443,6 +446,13 @@ final class InvitationContent
                     'none',
                     ['none', 'rose', 'sakura', 'gold', 'snow']
                 ),
+                'floaters' => self::enum(
+                    $data['theme']['fx']['floaters'] ?? null,
+                    self::legacyFloaters($data['theme']['fx']['petals'] ?? null),
+                    ['none', 'hearts', 'rose', 'sakura', 'gold', 'snow', 'stars', 'leaves', 'custom']
+                ),
+                'floaters_image' => self::url($data['theme']['fx']['floaters_image'] ?? null, ''),
+                'inline_hearts' => self::bool($data['theme']['fx']['inline_hearts'] ?? null, true),
                 'intensity' => self::clampInt($data['theme']['fx']['intensity'] ?? null, 2, 1, 3),
                 'overlay' => self::url($data['theme']['fx']['overlay'] ?? null, ''),
                 'overlay_pos' => self::enum(
@@ -603,6 +613,18 @@ final class InvitationContent
     private static function enum(mixed $value, string $default, array $allowed): string
     {
         return is_string($value) && in_array($value, $allowed, true) ? $value : $default;
+    }
+
+    /**
+     * Kompatibilitas: konten lama hanya punya theme.fx.petals
+     * (none|rose|sakura|gold|snow). Nilai itu dipakai sebagai default
+     * untuk field baru theme.fx.floaters.
+     */
+    private static function legacyFloaters(mixed $petals): string
+    {
+        return is_string($petals) && in_array($petals, ['rose', 'sakura', 'gold', 'snow'], true)
+            ? $petals
+            : 'none';
     }
 
     private static function clampInt(mixed $value, int $default, int $min, int $max): int

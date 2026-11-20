@@ -11,12 +11,19 @@ const COLORS = {
     rose: '#d98c9a',
     sakura: '#f0b6c4',
     snow: '#ffffff',
-    gold: '#d8b46a'
+    gold: '#d8b46a',
+    hearts: '#d98c9a',
+    stars: '#d8b46a',
+    leaves: '#7f9b6a'
 };
 
-const PETAL_CLASS = {
+const SHAPE_CLASS = {
     snow: ' fx-petal--snow',
-    gold: ' fx-petal--gold'
+    gold: ' fx-petal--gold',
+    hearts: ' fx-petal--heart',
+    stars: ' fx-petal--star',
+    leaves: ' fx-petal--leaf',
+    custom: ' fx-petal--custom'
 };
 
 let layer = null;
@@ -44,8 +51,12 @@ const clearPetals = () => {
     layer = null;
 };
 
-const addPetals = (kind, intensity) => {
+const addFloaters = (kind, intensity, image = '') => {
     if (!kind || kind === 'none') {
+        return;
+    }
+
+    if (kind === 'custom' && !image) {
         return;
     }
 
@@ -55,9 +66,15 @@ const addPetals = (kind, intensity) => {
 
     for (let i = 0; i < count; i++) {
         const el = document.createElement('span');
-        const size = kind === 'gold' ? 5 : random(8, 18);
+        const size = kind === 'gold'
+            ? 5
+            : kind === 'custom'
+                ? random(30, 56)
+                : kind === 'hearts' || kind === 'stars'
+                    ? random(12, 22)
+                    : random(8, 18);
 
-        el.className = 'fx-petal' + (PETAL_CLASS[kind] ?? '');
+        el.className = 'fx-petal' + (SHAPE_CLASS[kind] ?? '');
         el.style.setProperty('--x', `${random(0, 100).toFixed(2)}%`);
         el.style.setProperty('--size', `${size.toFixed(1)}px`);
         el.style.setProperty('--dur', `${random(9, 18).toFixed(1)}s`);
@@ -65,6 +82,10 @@ const addPetals = (kind, intensity) => {
         el.style.setProperty('--drift', `${random(-90, 90).toFixed(0)}px`);
         el.style.setProperty('--fx-color', COLORS[kind] ?? COLORS.rose);
         el.style.opacity = kind === 'snow' ? String(random(0.45, 0.85).toFixed(2)) : '';
+
+        if (kind === 'custom') {
+            el.style.setProperty('--fx-img', `url("${image}")`);
+        }
 
         fragment.appendChild(el);
     }
@@ -137,7 +158,10 @@ export const fx = {
     start(config = {}) {
         this.stop();
 
-        addPetals(config.petals, config.intensity);
+        // floaters = field baru; petals = nilai lama (kompatibilitas mundur).
+        const shape = config.floaters ?? config.petals ?? 'none';
+
+        addFloaters(shape, config.intensity, config.floaters_image ?? '');
         addOverlay(config.overlay, config.overlay_pos);
 
         if (config.cursor === 'sparkle') {

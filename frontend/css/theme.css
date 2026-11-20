@@ -119,6 +119,53 @@ html[data-skin]:not([data-skin="default"]) hr {
     border-radius: 50%;
 }
 
+/* ---------- bentuk ikon melayang (CMS: Tema & Efek → Ikon melayang) ---------- */
+
+.fx-petal--heart {
+    width: var(--size, 16px);
+    height: var(--size, 16px);
+    border-radius: 0;
+    background-color: var(--fx-color, #d98c9a);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m8 2.748-.717-.737C5.6.281 2.514.878 1.4 3.053c-.523 1.023-.641 2.5.314 4.385.92 1.815 2.834 3.989 6.286 6.357 3.452-2.368 5.365-4.542 6.286-6.357.955-1.886.838-3.362.314-4.385C13.486.878 10.4.28 8.717 2.01z'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m8 2.748-.717-.737C5.6.281 2.514.878 1.4 3.053c-.523 1.023-.641 2.5.314 4.385.92 1.815 2.834 3.989 6.286 6.357 3.452-2.368 5.365-4.542 6.286-6.357.955-1.886.838-3.362.314-4.385C13.486.878 10.4.28 8.717 2.01z'/%3E%3C/svg%3E") center / contain no-repeat;
+    opacity: .9;
+}
+
+.fx-petal--star {
+    width: var(--size, 16px);
+    height: var(--size, 16px);
+    border-radius: 0;
+    background: var(--fx-color, #d8b46a);
+    clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+    opacity: .9;
+}
+
+.fx-petal--leaf {
+    width: var(--size, 14px);
+    height: calc(var(--size, 14px) * 1.4);
+    border-radius: 0 50% 0 50%;
+    background: var(--fx-color, #7f9b6a);
+    opacity: .75;
+}
+
+.fx-petal--custom {
+    width: var(--size, 36px);
+    height: var(--size, 36px);
+    border-radius: 0;
+    background-color: transparent;
+    background-image: var(--fx-img, none);
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: .95;
+}
+
+/* Hati dekorasi (SVG data-class="animate-love") bisa dimatikan dari CMS */
+html[data-inline-hearts="off"] .animate-love,
+html[data-inline-hearts="off"] svg[data-class="animate-love"] {
+    display: none !important;
+}
+
 @keyframes fx-fall {
     0% { transform: translate3d(0, -10vh, 0) rotate(0deg); }
     100% { transform: translate3d(var(--drift, 40px), 112vh, 0) rotate(540deg); }

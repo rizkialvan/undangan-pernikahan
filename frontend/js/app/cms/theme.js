@@ -48,12 +48,16 @@ const COVERS = [
     { value: 'none', label: 'Langsung terbuka' }
 ];
 
-const PETALS = [
+const FLOATERS = [
     { value: 'none', label: 'Tidak ada' },
+    { value: 'hearts', label: 'Hati (love)' },
     { value: 'rose', label: 'Kelopak mawar' },
     { value: 'sakura', label: 'Kelopak sakura' },
+    { value: 'stars', label: 'Bintang' },
+    { value: 'leaves', label: 'Daun' },
     { value: 'gold', label: 'Serbuk emas' },
-    { value: 'snow', label: 'Salju' }
+    { value: 'snow', label: 'Salju' },
+    { value: 'custom', label: 'Gambar sendiri (dari galeri media)' }
 ];
 
 const num = (value, fallback) => {
@@ -253,7 +257,16 @@ const view = () => {
                         <div class="card-head"><div><h2>Efek saat dibuka</h2><p>Confetti dan partikel dekoratif.</p></div></div>
                         ${ui.switchField({ label: 'Aktifkan animasi & efek', bind: 'theme.animation', checked: theme.animation !== false, hint: 'Mematikan ini menonaktifkan semua gerak, partikel, dan overlay — berguna kalau tamu melaporkan HP berat.' })}
                         ${ui.switchField({ label: 'Confetti saat undangan dibuka', bind: 'theme.fx.confetti', checked: fx.confetti !== false })}
-                        ${ui.selectField({ label: 'Partikel', bind: 'theme.fx.petals', value: fx.petals ?? 'none', options: PETALS })}
+                        ${ui.selectField({ label: 'Ikon melayang', bind: 'theme.fx.floaters', value: fx.floaters ?? fx.petals ?? 'none', options: FLOATERS, hint: 'Ikon yang jatuh dari atas layar. Muncul setelah tamu menekan Open Invitation.' })}
+                        <label class="field" style="margin-top:12px;"><span class="label">Gambar untuk ikon "Gambar sendiri"</span>
+                            <div class="input-group">
+                                <input class="input" data-bind="theme.fx.floaters_image" value="${esc(fx.floaters_image ?? '')}" placeholder="/api/media?f=... (kosongkan bila tidak dipakai)">
+                                <button class="btn" type="button" data-pick-media="theme.fx.floaters_image">${icon('media', 13)} Pilih</button>
+                            </div>
+                            <span class="hint">Disarankan PNG/WebP transparan, ukuran ≤ 200 KB. Aktif hanya bila Ikon melayang = Gambar sendiri.</span>
+                        </label>
+                        ${fx.floaters_image ? `<div class="overlay-preview"><img src="${esc(fx.floaters_image)}" alt="Pratinjau ikon"><button class="btn btn-sm btn-ghost" type="button" data-clear-floaters>${icon('refresh', 13)} Hapus gambar</button></div>` : ''}
+                        ${ui.switchField({ label: 'Hati dekorasi di section (SVG di samping foto mempelai)', bind: 'theme.fx.inline_hearts', checked: fx.inline_hearts !== false, hint: 'Matikan jika ingin undangan tanpa hati melayang bawaan — terpisah dari ikon melayang di atas.' })}
                         <label class="field" style="margin-top:12px;"><span class="label">Intensitas <output data-out="fx.intensity">${num(fx.intensity, 2)}</output></span>
                             <input type="range" class="range" min="1" max="3" step="1" data-bind="theme.fx.intensity" value="${num(fx.intensity, 2)}">
                             <span class="hint">1 = ringan (hemat baterai), 3 = paling ramai.</span>
@@ -393,6 +406,11 @@ const mount = (root) => {
 
         root.querySelector('[data-clear-overlay]')?.addEventListener('click', () => {
             store.set('theme.fx.overlay', '');
+            paint();
+        });
+
+        root.querySelector('[data-clear-floaters]')?.addEventListener('click', () => {
+            store.set('theme.fx.floaters_image', '');
             paint();
         });
 

@@ -128,6 +128,8 @@ export const apply = (theme = {}) => {
     const reveal = reduced || animationOff ? 'none' : String(motion.reveal ?? 'fade-up');
     root.setAttribute('data-reveal', reveal);
     root.setAttribute('data-fx-cursor', !reduced && !animationOff && fx.cursor === 'sparkle' ? 'sparkle' : 'none');
+    // Hati dekorasi (SVG inline di section) bisa disembunyikan dari CMS.
+    root.setAttribute('data-inline-hearts', fx.inline_hearts === false ? 'off' : 'on');
 
     const bgOpacity = Math.min(100, Math.max(0, Number(theme.background_opacity ?? 100)));
     applyPageBackground(theme.background, bgOpacity);
@@ -140,7 +142,7 @@ export const apply = (theme = {}) => {
         accent,
         motion: { ...motion, reveal, duration, stagger },
         cover: theme.cover ?? {},
-        fx: animationOff || reduced ? { ...fx, confetti: false, petals: 'none', overlay: '', cursor: 'none' } : fx
+        fx: animationOff || reduced ? { ...fx, confetti: false, petals: 'none', floaters: 'none', overlay: '', cursor: 'none' } : fx
     };
 
     return current;
