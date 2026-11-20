@@ -2,6 +2,14 @@
 node_modules/
 frontend/dist/
 frontend/public/
+__pycache__/
+*.pyc
+
+# media pribadi & hasil generate (jangan pernah commit)
+frontend/assets/images/dj/
+frontend/assets/images/og/
+frontend/assets/music/
+frontend/assets/video/
 
 # secrets & environment
 .env

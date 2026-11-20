@@ -35,6 +35,9 @@ const sentToday = async (userId) => {
     return res.rows[0]?.total ?? 0;
 };
 
+/** Jeda tetap antar pesan (detik) — diambil dari delay_min. */
+const gapMsOf = (cfg) => Math.max(1000, Math.round(Number(cfg.delay_min ?? DEFAULT_SETTINGS.delay_min) * 1000));
+
 const pickJob = async (userId) => {
     const res = await query(
         `update wa_messages set status = 'sending', updated_at = now()
@@ -88,6 +91,13 @@ const markFailed = async (job, reason, retryAt) => {
     );
 };
 
+const requeue = async (job) => {
+    await query(
+        `update wa_messages set status = 'queued', updated_at = now() where id = $1 and status = 'sending'`,
+        [job.id],
+    );
+};
+
 const pauseAll = async (userId, reason) => {
     await query(
         `update wa_settings set paused = true, updated_at = now() where user_id = $1`,
@@ -98,8 +108,65 @@ const pauseAll = async (userId, reason) => {
 };
 
 /**
- * Worker antrean: satu pesan per putaran, delay acak antar pesan,
- * kuota harian, jam kirim, validasi nomor, dan circuit breaker.
+ * Kirim satu pesan SEKARANG tanpa menunggu putaran antrean.
+ * Dipakai tombol "kirim" per tamu (dan bulk dengan tepat 1 penerima).
+ * Baris wa_messages tetap dipakai sebagai jejak/audit.
+ */
+export const sendNow = async (session, userId, id) => {
+    const claim = await query(
+        `update wa_messages set status = 'sending', updated_at = now()
+         where id = $1 and user_id = $2 and status = 'queued'
+         returning id, user_id, guest_id, phone, body, attempts`,
+        [id, userId],
+    );
+
+    const job = claim.rows[0];
+
+    if (!job) {
+        return { ok: false, code: 409, error: 'pesan tidak ada di antrean (sudah diproses?)' };
+    }
+
+    if (session.status !== 'connected') {
+        await requeue(job);
+
+        return { ok: false, code: 409, error: 'sesi WhatsApp belum terhubung' };
+    }
+
+    const phone = normalizePhone(job.phone);
+
+    if (phone.length < 9 || phone.length > 15) {
+        await markSkipped(job, 'nomor tidak valid');
+
+        return { ok: false, code: 422, error: 'nomor tidak valid' };
+    }
+
+    const jid = await session.isRegistered(phone);
+
+    if (!jid) {
+        await markSkipped(job, 'nomor tidak terdaftar di WhatsApp');
+
+        return { ok: false, code: 422, error: 'nomor tidak terdaftar di WhatsApp' };
+    }
+
+    try {
+        const waId = await session.sendText(jid, job.body);
+        await markSent({ ...job, phone }, waId);
+        session.lastSentAt = Date.now();
+
+        console.log(`[gateway ${userId}] send-now #${job.id} -> ${phone}`);
+
+        return { ok: true, wa_id: waId, message_id: job.id };
+    } catch (err) {
+        await markFailed(job, err.message, false);
+
+        return { ok: false, code: 500, error: err.message };
+    }
+};
+
+/**
+ * Worker antrean: satu pesan per putaran, JEDA TETAP antar pesan (delay_min,
+ * default 10 detik dihitung dari kirim terakhir), kuota harian, jam kirim,
+ * validasi nomor, dan circuit breaker.
  */
 export const startWorker = (session) => {
     if (session.workerStarted) {
@@ -166,22 +233,41 @@ export const startWorker = (session) => {
                     continue;
                 }
 
-                // Simulasi manusia: tampak mengetik 2-5 detik sebelum kirim.
+                // Jeda tetap: kirim berikutnya paling cepat gapMs setelah kirim terakhir.
+                // Durasi "composing" dihitung sebagai bagian dari jeda itu.
+                const gapMs = gapMsOf(cfg);
+                const composeMs = 2000 + Math.random() * 3000;
+                const waitMs = (session.lastSentAt ?? 0) + gapMs - Date.now() - composeMs;
+
+                if (waitMs > 0) {
+                    const alive = await interruptibleSleep(
+                        waitMs / 1000,
+                        session,
+                        async () => (await settings(userId)).paused,
+                    );
+
+                    if (!alive) {
+                        await requeue(job);
+                        session.currentJob = null;
+                        continue;
+                    }
+                }
+
+                // Simulasi manusia: tampak mengetik sebelum kirim.
                 await session.presence(jid, 'composing');
-                await sleep(2000 + Math.random() * 3000);
+                await sleep(composeMs);
                 await session.presence(jid, 'paused');
 
                 const waId = await session.sendText(jid, job.body);
                 await markSent({ ...job, phone }, waId);
+                session.lastSentAt = Date.now();
                 session.currentJob = null;
 
                 consecutiveErrors = 0;
 
-                const delay = Math.floor(
-                    cfg.delay_min + Math.random() * Math.max(1, cfg.delay_max - cfg.delay_min),
+                console.log(
+                    `[worker ${userId}] sent #${job.id} -> ${phone} (jeda ${Math.round(gapMs / 1000)}s)`,
                 );
-                console.log(`[worker ${userId}] sent #${job.id} -> ${phone}, next in ${delay}s`);
-                await interruptibleSleep(delay, session, async () => (await settings(userId)).paused);
             } catch (err) {
                 consecutiveErrors += 1;
                 console.error(`[worker ${userId}] error:`, err.message);

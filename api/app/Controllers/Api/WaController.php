@@ -52,11 +52,43 @@ class WaController extends Controller
     private function link(string $name, string $slug): string
     {
         $key = (string) Auth::user()->access_key;
+        $token = $this->shareToken();
 
         return $this->baseUrl()
             . '/?to=' . rawurlencode($name)
             . '&g=' . rawurlencode($slug)
-            . '&k=' . rawurlencode($key);
+            . '&k=' . rawurlencode($key)
+            . ($token !== '' ? '&p=' . $token : '');
+    }
+
+    /**
+     * Token pendek di link tamu. Berubah saat gambar share / konten di-publish
+     * ulang, jadi crawler WhatsApp membuat preview baru alih-alih memakai
+     * cache URL lama (yang bisa tersimpan tanpa gambar).
+     */
+    private function shareToken(): string
+    {
+        static $cached = null;
+
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $invitation = Invitation::where('user_id', $this->userId())->limit(1)->first();
+
+        if (!$invitation->exist()) {
+            return $cached = '';
+        }
+
+        $content = InvitationContent::decode($invitation->content_published);
+        $raw = implode('|', [
+            (string) ($content['meta']['og_image'] ?? ''),
+            (string) ($content['cover']['photo'] ?? ''),
+            (string) ($invitation->version ?? ''),
+            (string) ($invitation->published_at ?? ''),
+        ]);
+
+        return $cached = substr(sha1($raw), 0, 8);
     }
 
     private function sessionRow(): WaSession
@@ -157,8 +189,8 @@ class WaController extends Controller
     {
         return [
             'template' => (string) ($row->template ?? self::DEFAULT_TEMPLATE),
-            'delay_min' => intval($row->delay_min ?? 45),
-            'delay_max' => intval($row->delay_max ?? 120),
+            'delay_min' => intval($row->delay_min ?? 10),
+            'delay_max' => intval($row->delay_max ?? 10),
             'daily_cap' => intval($row->daily_cap ?? 50),
             'hour_start' => intval($row->hour_start ?? 8),
             'hour_end' => intval($row->hour_end ?? 21),
@@ -172,7 +204,7 @@ class WaController extends Controller
         $settings = $this->settingsPayload($this->settingsRow());
 
         $perDay = max(1, $settings['daily_cap']);
-        $avgDelay = max(5, intval(($settings['delay_min'] + $settings['delay_max']) / 2) + 4);
+        $avgDelay = max(1, intval($settings['delay_min']));
         $queued = $this->countStatus('queued');
         $sentToday = $this->sentToday();
 
@@ -255,11 +287,11 @@ class WaController extends Controller
             return max($min, min($max, $n));
         };
 
-        $min = $clamp($body['delay_min'] ?? null, 10, 600, 45);
-        $max = $clamp($body['delay_max'] ?? null, 15, 900, 120);
+        $min = $clamp($body['delay_min'] ?? null, 5, 900, 10);
+        $max = $clamp($body['delay_max'] ?? null, 5, 900, $min);
 
-        if ($max <= $min) {
-            return $this->json->errorBadRequest(['delay_max harus lebih besar dari delay_min.']);
+        if ($max < $min) {
+            return $this->json->errorBadRequest(['delay_max tidak boleh lebih kecil dari delay_min.']);
         }
 
         $row = $this->settingsRow();
@@ -310,6 +342,43 @@ class WaController extends Controller
             ->first();
 
         return $row->exist();
+    }
+
+    private function pendingCountExcept(int $messageId): int
+    {
+        $row = WaMessage::where('user_id', $this->userId())
+            ->whereIn('status', ['queued', 'sending'])
+            ->where('id', $messageId, '<>')
+            ->count('id', 'total')
+            ->first();
+
+        return intval($row->total ?? 0);
+    }
+
+    /**
+     * Kirim satu baris pesan SEKARANG lewat gateway (tanpa menunggu antrean).
+     *
+     * @param array<string, mixed> $extra
+     */
+    private function sendDirect(int $messageId, int $queued, int $skipped, array $extra): JsonResponse
+    {
+        $res = $this->gateway('POST', '/session/' . $this->userId() . '/send-now', ['id' => $messageId]);
+
+        if (!($res['ok'] ?? false)) {
+            $error = (string) ($res['error'] ?? 'gagal mengirim WhatsApp');
+
+            return $this->json->errorBadRequest([$error]);
+        }
+
+        return $this->json->successOK(array_merge([
+            'direct' => true,
+            'sent' => 1,
+            'queued' => $queued,
+            'skipped' => $skipped,
+            'message_id' => $messageId,
+            'wa_id' => $res['wa_id'] ?? null,
+            'eta_minutes' => 0,
+        ], $extra));
     }
 
     /** @return array<string, mixed> */
@@ -365,10 +434,17 @@ class WaController extends Controller
             'scheduled_at' => date('Y-m-d H:i:s'),
         ]);
 
+        $messageId = intval($message->id);
+
+        // Kirim tunggal tanpa antrean: langsung kirim sekarang.
+        if ($this->pendingCountExcept($messageId) === 0) {
+            return $this->sendDirect($messageId, 0, 0, []);
+        }
+
         return $this->json->successOK([
             'queued' => 1,
-            'message_id' => intval($message->id),
-            'eta_minutes' => intval(ceil((max(5, intval(($settings['delay_min'] + $settings['delay_max']) / 2) + 4)) / 60)),
+            'message_id' => $messageId,
+            'eta_minutes' => intval(ceil(max(1, intval($settings['delay_min'])) / 60)),
         ]);
     }
 
@@ -406,6 +482,7 @@ class WaController extends Controller
 
         $queued = 0;
         $skipped = 0;
+        $queuedIds = [];
         $reasons = ['tanpa_nomor' => 0, 'sudah_terkirim' => 0, 'di_antrean' => 0];
 
         foreach ($rows as $row) {
@@ -450,7 +527,7 @@ class WaController extends Controller
                 'link' => $this->link((string) ($row->name ?? ''), (string) ($row->slug ?? '')),
             ];
 
-            WaMessage::create([
+            $created = WaMessage::create([
                 'user_id' => $this->userId(),
                 'guest_id' => $guestId,
                 'phone' => $phone,
@@ -459,12 +536,22 @@ class WaController extends Controller
                 'scheduled_at' => date('Y-m-d H:i:s'),
             ]);
 
+            $queuedIds[] = intval($created->id);
             $queued++;
         }
 
-        $avgDelay = max(5, intval(($settings['delay_min'] + $settings['delay_max']) / 2) + 4);
+        $avgDelay = max(1, intval($settings['delay_min']));
         $remainingToday = max(0, $settings['daily_cap'] - $this->sentToday());
         $throughput = max(1, min($queued, $remainingToday));
+
+        // Hanya 1 penerima (pilih 1 tamu / 1 yang lolos filter): kirim langsung.
+        if (count($queuedIds) === 1 && $this->pendingCountExcept($queuedIds[0]) === 0) {
+            return $this->sendDirect($queuedIds[0], 0, $skipped, [
+                'reasons' => $reasons,
+                'remaining_today' => $remainingToday,
+                'spillover_days' => 0,
+            ]);
+        }
 
         return $this->json->successOK([
             'queued' => $queued,

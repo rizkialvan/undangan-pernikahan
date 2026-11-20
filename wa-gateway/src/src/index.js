@@ -2,7 +2,7 @@ import express from 'express';
 import { config } from './config.js';
 import { query } from './db.js';
 import { getSession, normalizePhone, toJid } from './wa.js';
-import { startWorker } from './queue.js';
+import { startWorker, sendNow } from './queue.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -145,6 +145,28 @@ app.post('/session/:userId/test-send', async (req, res) => {
     } catch (err) {
         res.status(500).json({ ok: false, error: err.message });
     }
+});
+
+/**
+ * Kirim satu pesan SEKARANG (tanpa menunggu antrean) — dipakai tombol kirim
+ * per tamu. Body: { id: <wa_messages.id> }.
+ */
+app.post('/session/:userId/send-now', async (req, res) => {
+    const userId = userIdOf(req);
+    const id = Number(req.body?.id ?? 0);
+
+    if (!userId) {
+        return res.status(400).json({ ok: false, error: 'user id tidak valid' });
+    }
+
+    if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({ ok: false, error: 'id pesan tidak valid' });
+    }
+
+    const session = prepare(userId);
+    const result = await sendNow(session, userId, id);
+
+    return res.status(result.ok ? 200 : (result.code ?? 500)).json(result);
 });
 
 const boot = async () => {

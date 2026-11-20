@@ -23,8 +23,8 @@ export const DEFAULT_SETTINGS = {
         'Detail acara, lokasi, dan RSVP:\n{link}\n\n' +
         'Merupakan suatu kebahagiaan bagi kami apabila Bapak/Ibu/Saudara berkenan hadir.\n\n' +
         'Terima kasih 🙏',
-    delay_min: 45,
-    delay_max: 120,
+    delay_min: 10,
+    delay_max: 10,
     daily_cap: 50,
     hour_start: 8,
     hour_end: 21,

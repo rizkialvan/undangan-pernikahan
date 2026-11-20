@@ -93,9 +93,23 @@ export class Wasession {
                 browser: Browsers.ubuntu('Chrome'),
                 markOnlineOnConnect: false,
                 syncFullHistory: false,
+                // Wajib: tanpa ini Baileys tidak mengunggah thumbnail resolusi
+                // penuh, kartu preview hanya dapat gambar mini (atau kosong).
+                generateHighQualityLinkPreview: true,
             });
 
             this.sock.ev.on('creds.update', saveCreds);
+
+            // Status pesan keluar: 0=error 1=pending 2=server 3=diterima perangkat 4=dibaca
+            this.sock.ev.on('messages.update', (updates) => {
+                for (const u of updates ?? []) {
+                    if (!u.key?.fromMe) {
+                        continue;
+                    }
+
+                    console.log(`[ack] ${u.key.id} status=${u.update?.status ?? '?'}`);
+                }
+            });
 
             this.sock.ev.on('connection.update', async (update) => {
                 const { connection, lastDisconnect, qr } = update;
@@ -193,7 +207,13 @@ export class Wasession {
                 return null;
             }
 
-            return first.exists === false ? null : (first.jid ?? jid);
+            if (first.exists === false) {
+                return null;
+            }
+
+            // WhatsApp sudah migrasi ke LID; kirim ke LID kalau tersedia
+            // (mengirim ke @s.whatsapp.net berakhir "waiting for this message").
+            return first.lid ?? first.jid ?? jid;
         } catch (err) {
             console.warn('[session] onWhatsApp gagal', err.message);
             return null;
@@ -206,6 +226,20 @@ export class Wasession {
         }
 
         const sent = await this.sock.sendMessage(jid, { text });
+
+        console.log(`[sent] ${sent?.key?.id} -> ${jid}`);
+
+        const ext = sent?.message?.extendedTextMessage ?? {};
+        const thumb = Buffer.isBuffer(ext.jpegThumbnail) ? ext.jpegThumbnail : null;
+
+        if (ext.title || ext.canonicalUrl || thumb) {
+            console.log(
+                `[session] preview ok: "${String(ext.title ?? '').slice(0, 60)}" `
+                + `thumb=${thumb ? thumb.length : 0}B hq=${ext.thumbnailDirectPath ? 'yes' : 'no'}`,
+            );
+        } else {
+            console.warn('[session] preview kosong (link tidak terdeteksi / fetch gagal)');
+        }
 
         return sent?.key?.id ?? null;
     }

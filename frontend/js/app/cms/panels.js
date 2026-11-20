@@ -373,6 +373,7 @@ export const panels = (() => {
                     <div class="grid grid-2" style="margin-top:12px;">
                         ${photoField('Foto cover', 'cover.photo', store.get('cover.photo', ''))}
                         ${photoField('Foto bulat halaman awal', 'home.photo', store.get('home.photo', ''))}
+                        ${photoField('Background halaman awal', 'home.background', store.get('home.background', ''), 'Foto besar yang tampil buram di belakang judul Home. Rasio 2:3, minimal 900×1350 px.')}
                     </div>
                 </div>
 
@@ -629,9 +630,9 @@ export const panels = (() => {
                 const ok = await ui.confirm({
                     title: single ? 'Kirim undangan?' : `Kirim ke ${withPhone.length} tamu?`,
                     message: single
-                        ? `Undangan masuk antrean untuk ${withPhone[0].name} (${withPhone[0].phone}).`
-                        : `${withPhone.length} tamu akan masuk antrean. Pengiriman dipacing otomatis (delay acak + kuota harian) supaya nomor tidak diblokir.`,
-                    confirmLabel: 'Masukkan antrean'
+                        ? `Undangan langsung dikirim sekarang ke ${withPhone[0].name} (${withPhone[0].phone}).`
+                        : `${withPhone.length} tamu akan dikirimi berurutan dengan jeda tetap antar pesan.`,
+                    confirmLabel: single ? 'Kirim sekarang' : 'Mulai kirim'
                 });
 
                 if (!ok) {
@@ -644,7 +645,7 @@ export const panels = (() => {
                         : await api.waBulk({ ids: withPhone.map((g) => g.id) });
 
                     const skipped = res.skipped ? `, dilewati ${res.skipped}` : '';
-                    ui.toast(`Masuk antrean: ${res.queued ?? 1}${skipped}`);
+                    ui.toast(res.direct ? `Terkirim langsung${skipped}` : `Masuk antrean: ${res.queued ?? 1}${skipped}`);
                     load();
                 } catch (err) {
                     ui.toast(err.message, 'error');
@@ -800,8 +801,8 @@ export const panels = (() => {
             root.querySelector('[data-wa-all]')?.addEventListener('click', async () => {
                 const ok = await ui.confirm({
                     title: 'Kirim ke semua tamu?',
-                    message: 'Semua tamu yang punya nomor dan belum pernah dikirimi akan masuk antrean. Pengiriman dipacing otomatis sesuai kuota harian.',
-                    confirmLabel: 'Masukkan antrean'
+                    message: 'Semua tamu yang punya nomor dan belum pernah dikirimi akan dikirim berurutan dengan jeda tetap antar pesan. Kalau hanya ada 1 penerima, pesan langsung dikirim.',
+                    confirmLabel: 'Mulai kirim'
                 });
 
                 if (!ok) {
@@ -810,7 +811,7 @@ export const panels = (() => {
 
                 try {
                     const res = await api.waBulk({ all: true });
-                    ui.toast(`Masuk antrean: ${res.queued}, dilewati ${res.skipped}`);
+                    ui.toast(res.direct ? 'Terkirim langsung' : `Masuk antrean: ${res.queued}, dilewati ${res.skipped}`);
                     load();
                 } catch (err) {
                     ui.toast(err.message, 'error');
@@ -1518,10 +1519,11 @@ export const panels = (() => {
                 });
 
                 holder.querySelector('[data-save]')?.addEventListener('click', async () => {
+                    const gap = Math.max(5, Number(holder.querySelector('[data-min]').value) || 10);
                     const payload = {
                         template: holder.querySelector('[data-tpl]').value,
-                        delay_min: Number(holder.querySelector('[data-min]').value),
-                        delay_max: Number(holder.querySelector('[data-max]').value),
+                        delay_min: gap,
+                        delay_max: gap,
                         daily_cap: Number(holder.querySelector('[data-cap]').value),
                         hour_start: Number(holder.querySelector('[data-hs]').value),
                         hour_end: Number(holder.querySelector('[data-he]').value),
@@ -1591,8 +1593,7 @@ export const panels = (() => {
                         <label class="field"><span class="label">Template pesan</span><textarea class="textarea" rows="7" data-tpl>${esc(cfg.template ?? '')}</textarea></label>
                         <div class="hint">Placeholder: <code>{nama}</code> dan <code>{link}</code> — link personal unik per tamu.</div>
                         <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;">
-                            <label class="field"><span class="label">Delay min (detik)</span><input class="input" type="number" data-min value="${Number(cfg.delay_min ?? 45)}"></label>
-                            <label class="field"><span class="label">Delay max (detik)</span><input class="input" type="number" data-max value="${Number(cfg.delay_max ?? 120)}"></label>
+                            <label class="field"><span class="label">Jeda antar pesan (detik)</span><input class="input" type="number" min="5" data-min value="${Number(cfg.delay_min ?? 10)}"></label>
                             <label class="field"><span class="label">Kuota per hari</span><input class="input" type="number" data-cap value="${Number(cfg.daily_cap ?? 50)}"></label>
                             <label class="field"><span class="label">Jam mulai</span><input class="input" type="number" data-hs value="${Number(cfg.hour_start ?? 8)}"></label>
                             <label class="field"><span class="label">Jam selesai</span><input class="input" type="number" data-he value="${Number(cfg.hour_end ?? 21)}"></label>
