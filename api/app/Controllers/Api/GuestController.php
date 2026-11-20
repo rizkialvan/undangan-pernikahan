@@ -136,6 +136,8 @@ class GuestController extends Controller
                 'category' => $row->category,
                 'note' => $row->note,
                 'sent_at' => $row->sent_at,
+                'opened_at' => $row->opened_at,
+                'visit_count' => intval($row->visit_count ?? 0),
                 'created_at' => $row->created_at,
                 'link' => $this->link($row->name, $row->slug),
             ];
@@ -277,7 +279,7 @@ class GuestController extends Controller
 
         $resource = $stream->getStream();
 
-        fputcsv($resource, ['nama', 'kategori', 'whatsapp', 'catatan', 'link_undangan', 'status_rsvp', 'ucapan', 'waktu_rsvp']);
+        fputcsv($resource, ['nama', 'kategori', 'whatsapp', 'catatan', 'link_undangan', 'status_rsvp', 'ucapan', 'waktu_rsvp', 'dibuka', 'kunjungan']);
 
         foreach ($guests as $guest) {
             $data = $rsvp[intval($guest->id)] ?? null;
@@ -291,6 +293,8 @@ class GuestController extends Controller
                 $data === null ? 'belum' : ($data['presence'] ? 'hadir' : 'tidak hadir'),
                 $data['message'] ?? '',
                 $data['at'] ?? '',
+                $guest->opened_at ?? '',
+                intval($guest->visit_count ?? 0),
             ]);
         }
 
@@ -315,11 +319,27 @@ class GuestController extends Controller
             return $this->json->errorNotFound();
         }
 
+        // Catat kunjungan: opened_at = pertama kali link dibuka, visit_count = jumlah buka.
+        // Nilai respons diambil SEBELUM save(): model Kamu mengosongkan primary key setelah simpan.
+        $id = intval($guest->id);
+        $slugValue = (string) $guest->slug;
+        $name = (string) $guest->name;
+        $category = $guest->category;
+        $openedAt = empty($guest->opened_at) ? now() : $guest->opened_at;
+        $visits = intval($guest->visit_count ?? 0) + 1;
+
+        $guest->fill([
+            'opened_at' => $openedAt,
+            'visit_count' => $visits,
+        ])->save();
+
         return $this->json->successOK([
-            'id' => intval($guest->id),
-            'slug' => $guest->slug,
-            'name' => $guest->name,
-            'category' => $guest->category,
+            'id' => $id,
+            'slug' => $slugValue,
+            'name' => $name,
+            'category' => $category,
+            'opened_at' => $openedAt,
+            'visit_count' => $visits,
         ]);
     }
 }

@@ -1,0 +1,249 @@
+/* ------------------------------------------------------------------
+   Token tema + gerak + efek dekoratif (menu "Tema & Efek" di CMS)
+   Dimuat halaman tamu SEBELUM guest.css.
+   ------------------------------------------------------------------ */
+
+:root {
+    --cms-accent: #8c7853;
+    --cms-accent-contrast: #ffffff;
+    --cms-motion-ms: 900ms;
+    --cms-stagger: 90ms;
+    --cms-ease: cubic-bezier(.16, 1, .3, 1);
+}
+
+/* Aksen: pengganti aturan <style> yang dulu disuntik content.js */
+.btn-primary {
+    background-color: var(--cms-accent) !important;
+    border-color: var(--cms-accent) !important;
+    color: var(--cms-accent-contrast) !important;
+}
+
+.progress-bar {
+    background-color: var(--cms-accent) !important;
+}
+
+.text-theme-auto {
+    color: var(--cms-accent) !important;
+}
+
+/* ---------- palet (hanya aktif kalau CMS mengisi token) ---------- */
+
+html[data-skin]:not([data-skin="default"]) {
+    --bs-body-bg: var(--cms-bg, #ffffff);
+    --bs-body-color: var(--cms-text, #212529);
+    --bs-border-color: var(--cms-line, #dee2e6);
+    background-color: var(--cms-bg, #ffffff);
+}
+
+html[data-skin]:not([data-skin="default"]) body {
+    background-color: var(--cms-bg, #ffffff);
+    color: var(--cms-text, #212529);
+}
+
+html[data-skin]:not([data-skin="default"]) .bg-theme-auto {
+    background-color: var(--cms-surface, #f8f9fa) !important;
+}
+
+html[data-skin]:not([data-skin="default"]) .text-muted,
+html[data-skin]:not([data-skin="default"]) small.text-muted {
+    color: var(--cms-muted, #6c757d) !important;
+}
+
+html[data-skin]:not([data-skin="default"]) hr {
+    border-color: var(--cms-line, #dee2e6);
+}
+
+/* ---------- reveal on scroll ---------- */
+
+.rv {
+    opacity: 0;
+    transition:
+        opacity var(--cms-motion-ms) var(--cms-ease) var(--rv-delay, 0ms),
+        transform var(--cms-motion-ms) var(--cms-ease) var(--rv-delay, 0ms),
+        filter var(--cms-motion-ms) var(--cms-ease) var(--rv-delay, 0ms),
+        clip-path var(--cms-motion-ms) var(--cms-ease) var(--rv-delay, 0ms);
+    will-change: opacity, transform;
+}
+
+.rv-fade-up { transform: translate3d(0, 28px, 0); }
+.rv-slide-right { transform: translate3d(-28px, 0, 0); }
+.rv-slide-left { transform: translate3d(28px, 0, 0); }
+.rv-zoom { transform: scale(.94); }
+.rv-blur { filter: blur(10px); }
+.rv-mask { clip-path: inset(0 0 100% 0); }
+
+.rv.is-revealed {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    clip-path: inset(0 0 0 0);
+    will-change: auto;
+}
+
+/* ---------- efek dekoratif ---------- */
+
+.fx-layer {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 1040;
+}
+
+.fx-petal {
+    position: absolute;
+    top: -8vh;
+    left: var(--x, 50%);
+    width: var(--size, 14px);
+    height: calc(var(--size, 14px) * .72);
+    background: var(--fx-color, #d98c9a);
+    border-radius: 62% 0 62% 0;
+    opacity: .85;
+    animation: fx-fall var(--dur, 12s) linear var(--delay, 0s) infinite;
+    will-change: transform;
+}
+
+.fx-petal--snow {
+    border-radius: 50%;
+    background: #ffffff;
+    opacity: .8;
+    filter: blur(.3px);
+}
+
+.fx-petal--gold {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #d8b46a;
+    box-shadow: 0 0 8px 1px rgba(216, 180, 106, .65);
+    border-radius: 50%;
+}
+
+@keyframes fx-fall {
+    0% { transform: translate3d(0, -10vh, 0) rotate(0deg); }
+    100% { transform: translate3d(var(--drift, 40px), 112vh, 0) rotate(540deg); }
+}
+
+.fx-overlay {
+    position: fixed;
+    left: 0;
+    right: 0;
+    width: 100%;
+    pointer-events: none;
+    z-index: 1035;
+    object-fit: contain;
+    object-position: center bottom;
+    max-height: 46vh;
+}
+
+.fx-overlay--top { top: 0; object-position: center top; }
+.fx-overlay--bottom { bottom: 0; }
+.fx-overlay--full {
+    top: 0;
+    bottom: 0;
+    height: 100vh;
+    max-height: none;
+    object-position: center;
+}
+
+.fx-spark {
+    position: fixed;
+    width: 6px;
+    height: 6px;
+    margin: -3px 0 0 -3px;
+    border-radius: 50%;
+    background: var(--cms-accent);
+    pointer-events: none;
+    z-index: 1060;
+    animation: fx-spark .7s ease-out forwards;
+}
+
+@keyframes fx-spark {
+    0% { opacity: .9; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0) translateY(10px); }
+}
+
+/* ---------- transisi buka undangan ---------- */
+
+body.is-opening {
+    overflow: hidden;
+}
+
+/* ---------- hormati preferensi sistem ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+    .rv,
+    .rv.is-revealed {
+        opacity: 1 !important;
+        transform: none !important;
+        filter: none !important;
+        clip-path: none !important;
+        transition: none !important;
+    }
+
+    .fx-petal,
+    .fx-spark {
+        display: none !important;
+    }
+
+    .slide-desktop,
+    .slide-desktop-active,
+    .animate-love,
+    .scroll-animation {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+/* ---------- latar seluruh halaman ---------- */
+
+.cms-page-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    height: 100lvh; /* tinggi viewport terbesar: stabil saat address bar mobile hide/show */
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
+    backface-visibility: hidden;
+    transition: opacity .25s ease;
+}
+
+.cms-page-bg-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.cms-page-bg.is-broken {
+    display: none;
+}
+
+html[data-page-bg] #root {
+    position: relative;
+    z-index: 1;
+}
+
+html[data-page-bg] .bg-light-dark {
+    background-color: rgba(var(--bs-body-bg-rgb, 255, 255, 255), .74) !important;
+    background-color: color-mix(in srgb, var(--bs-body-bg, #ffffff) 74%, transparent) !important;
+}
+
+html[data-page-bg] .bg-white-black {
+    background-color: rgba(var(--bs-body-bg-rgb, 255, 255, 255), .82) !important;
+    background-color: color-mix(in srgb, var(--bs-body-bg, #ffffff) 82%, transparent) !important;
+}
+
+/* Penyambung gelombang (wave separator). Saat latar foto dipakai, seluruh
+   separator disembunyikan supaya wallpaper menyambung murni tanpa pita/gap.
+   Tanpa latar foto, gelombang kembali seperti aslinya (guest.css). */
+html[data-page-bg] .svg-wrapper {
+    display: none !important;
+}

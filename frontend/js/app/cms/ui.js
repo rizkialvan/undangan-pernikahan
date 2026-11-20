@@ -7,6 +7,10 @@ const ICONS = {
     content: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>',
     media: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>',
     guests: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+    layout: '<rect x="3" y="3" width="18" height="6" rx="1.5"/><rect x="3" y="11" width="18" height="4" rx="1.5"/><rect x="3" y="17" width="18" height="4" rx="1.5"/>',
+    'arrow-up': '<path d="M12 19V5M5 12l7-7 7 7"/>',
+    'arrow-down': '<path d="M12 5v14M19 12l-7 7-7-7"/>',
+    palette: '<circle cx="12" cy="12" r="10"/><circle cx="8" cy="9" r="1.2"/><circle cx="12" cy="7" r="1.2"/><circle cx="16" cy="9" r="1.2"/><path d="M12 22a4 4 0 0 1 0-8h2a3 3 0 0 0 0-6" />',
     appearance: '<circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2a10 10 0 0 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.6-1.4-.4-.4-.6-.9-.6-1.4 0-1.1.9-2 2-2h2.3c2.1 0 3.9-1.8 3.9-3.9C21 6.5 17 2 12 2z"/>',
     website: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
     save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
@@ -289,6 +293,12 @@ export const ui = (() => {
             try {
                 toast('Mengunggah…');
                 const media = await api.upload(file);
+                const saved = media && media.size < file.size ? file.size - media.size : 0;
+
+                if (saved > 0) {
+                    toast(`Dikompres ${fmtBytes(file.size)} → ${fmtBytes(media.size)}`);
+                }
+
                 onSelect(media.url, media);
                 d.close();
             } catch (err) {

@@ -43,3 +43,7 @@ CREATE INDEX IF NOT EXISTS guests_user_id_idx ON guests(user_id);
 
 ALTER TABLE comments ADD COLUMN IF NOT EXISTS guest_id BIGINT NULL;
 CREATE INDEX IF NOT EXISTS comments_guest_id_idx ON comments(guest_id);
+
+-- Pelacakan kunjungan link personal (?g=slug): diisi oleh GuestController::track()
+ALTER TABLE guests ADD COLUMN IF NOT EXISTS opened_at TIMESTAMP NULL;
+ALTER TABLE guests ADD COLUMN IF NOT EXISTS visit_count INTEGER NOT NULL DEFAULT 0;

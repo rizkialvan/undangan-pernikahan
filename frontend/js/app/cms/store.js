@@ -65,6 +65,34 @@ export const store = (() => {
         notify();
     };
 
+    /**
+     * Isi nilai default tanpa menandai draft sebagai berubah.
+     * Dipakai panel yang butuh struktur baru (mis. urutan section) saat
+     * konten lama belum memilikinya.
+     */
+    const ensure = (path, value) => {
+        if (!draft) {
+            return;
+        }
+
+        const keys = String(path).split('.');
+        let target = draft;
+
+        for (let i = 0; i < keys.length - 1; i++) {
+            const key = keys[i];
+            if (typeof target[key] !== 'object' || target[key] === null) {
+                target[key] = /^\d+$/.test(keys[i + 1]) ? [] : {};
+            }
+            target = target[key];
+        }
+
+        const last = keys[keys.length - 1];
+        if (target[last] === undefined || target[last] === null) {
+            target[last] = value;
+            notify();
+        }
+    };
+
     const load = async () => {
         const data = await api.content();
 
@@ -202,6 +230,7 @@ export const store = (() => {
         load,
         get,
         set,
+        ensure,
         save,
         publish,
         revert,

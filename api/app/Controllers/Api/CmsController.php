@@ -203,6 +203,7 @@ class CmsController extends Controller
             ->first();
 
         $guestTotal = Guest::where('user_id', $userId)->count('id', 'total')->first();
+        $guestOpened = Guest::where('user_id', $userId)->whereNotNull('opened_at')->count('id', 'total')->first();
         $mediaTotal = Media::where('user_id', $userId)->count('id', 'total')->first();
         $likeTotal = Like::where('user_id', $userId)->count('id', 'total')->first();
 
@@ -217,6 +218,11 @@ class CmsController extends Controller
                 'total' => intval($presence->total_count ?? 0),
             ],
             'guests' => intval($guestTotal->total ?? 0),
+            'guest_open' => [
+                'total' => intval($guestTotal->total ?? 0),
+                'opened' => intval($guestOpened->total ?? 0),
+                'pending' => max(0, intval($guestTotal->total ?? 0) - intval($guestOpened->total ?? 0)),
+            ],
             'media' => intval($mediaTotal->total ?? 0),
             'likes' => intval($likeTotal->total ?? 0),
             'content' => [

@@ -1,6 +1,7 @@
 import { util } from '../../common/util.js';
 import { request, HTTP_GET } from '../../connection/request.js';
 import { ensureFontStylesheet, fontStack, googleFontsUrl, isCatalogFamily } from '../../common/fonts.js';
+import { appearance } from '../../common/appearance.js';
 
 /**
  * Hidrasi konten undangan dari CMS.
@@ -450,23 +451,13 @@ export const content = (() => {
         applyFontFamily(displayFont, '--cms-font-display');
         applyFontFamily(bodyFont, '--cms-font-body');
 
-        if (theme.accent) {
-            document.documentElement.style.setProperty('--cms-accent', theme.accent);
+        // Token warna, palet, gerak, dan efek dipasang oleh modul appearance.
+        appearance.apply(theme);
+
+        if (displayFont || bodyFont) {
+            ensureThemeStyle(displayFont, bodyFont);
         }
 
-        if (theme.accent || displayFont || bodyFont) {
-            ensureThemeStyle(theme.accent || null, displayFont, bodyFont);
-        }
-
-        if (theme.background) {
-            document.body.style.backgroundImage = `linear-gradient(rgba(0,0,0,.55), rgba(0,0,0,.55)), url("${String(theme.background).replace(/"/g, '')}")`;
-            document.body.style.backgroundSize = 'cover';
-            document.body.style.backgroundAttachment = 'fixed';
-        }
-
-        if (theme.animation === false) {
-            document.body.setAttribute('data-confetti', 'false');
-        }
     };
 
     const applySettings = (c) => {
@@ -494,7 +485,7 @@ export const content = (() => {
      * Aturan kecil untuk warna aksen & font pilihan admin.
      * Ditulis sebagai <style> supaya tidak perlu build ulang CSS.
      */
-    const ensureThemeStyle = (accent, font, bodyFont) => {
+    const ensureThemeStyle = (font, bodyFont) => {
         let style = document.getElementById('cms-theme-style');
 
         if (!style) {
@@ -504,14 +495,6 @@ export const content = (() => {
         }
 
         const rules = [];
-
-        if (accent) {
-            rules.push(`
-                .btn-primary { background-color: ${accent} !important; border-color: ${accent} !important; }
-                .progress-bar { background-color: ${accent} !important; }
-                .text-theme-auto { color: ${accent} !important; }
-            `);
-        }
 
         if (font) {
             rules.push(`

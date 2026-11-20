@@ -66,6 +66,7 @@ Route::middleware([RateLimitMiddleware::class, AuthMiddleware::class])->group(fu
         // CMS — media
         Route::get('/admin/media', [MediaController::class, 'index']);
         Route::post('/admin/media', [MediaController::class, 'store']);
+        Route::post('/admin/media/{id}/optimize', [MediaController::class, 'optimize']);
         Route::put('/admin/media/{id}', [MediaController::class, 'update']);
         Route::delete('/admin/media/{id}', [MediaController::class, 'destroy']);
         Route::options('/admin/media');

@@ -1,47 +1,18 @@
 import { cache } from '../connection/cache.js';
 
 /**
- * @param {ReturnType<typeof cache>} c
- * @returns {Promise<void>}
+ * Pemuatan aset animasi tambahan.
+ *
+ * Catatan penting:
+ * - AOS sudah DIHAPUS. Reveal on scroll sekarang ditangani
+ *   `js/app/guest/reveal.js` (IntersectionObserver, tanpa CDN), jadi tidak ada
+ *   lagi request ke jsDelivr hanya untuk animasi.
+ * - Kegagalan confetti / font tambahan TIDAK boleh menggagalkan progress
+ *   loader: keduanya dekoratif. Dulu satu CDN yang lambat bisa membuat layar
+ *   loading tidak pernah selesai.
  */
-const loadAOS = (c) => {
 
-    const urlCss = 'https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css';
-    const urlJs = 'https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js';
-
-    /**
-     * @returns {Promise<void>}
-     */
-    const loadCss = () => c.get(urlCss).then((uri) => new Promise((res, rej) => {
-        const link = document.createElement('link');
-        link.onload = res;
-        link.onerror = rej;
-
-        link.rel = 'stylesheet';
-        link.href = uri;
-        document.head.appendChild(link);
-    }));
-
-    /**
-     * @returns {Promise<void>}
-     */
-    const loadJs = () => c.get(urlJs).then((uri) => new Promise((res, rej) => {
-        const sc = document.createElement('script');
-        sc.onload = res;
-        sc.onerror = rej;
-
-        sc.src = uri;
-        document.head.appendChild(sc);
-    }));
-
-    return Promise.all([loadCss(), loadJs()]).then(() => {
-        if (typeof window.AOS === 'undefined') {
-            throw new Error('AOS library failed to load');
-        }
-
-        window.AOS.init();
-    });
-};
+const safe = (promise) => promise.catch(() => undefined);
 
 /**
  * @param {ReturnType<typeof cache>} c
@@ -92,7 +63,6 @@ const loadAdditionalFont = (c) => {
 
 /**
  * @param {Object} [opt]
- * @param {boolean} [opt.aos=true] - Load AOS library
  * @param {boolean} [opt.confetti=true] - Load Confetti library
  * @param {boolean} [opt.additionalFont=true] - Load Additional Font
  * @returns {Promise<void>}
@@ -101,16 +71,12 @@ export const loader = (opt = {}) => {
     const promises = [];
     const c = cache('libs').withForceCache();
 
-    if (opt?.aos ?? true) {
-        promises.push(loadAOS(c));
-    }
-
     if (opt?.confetti ?? true) {
-        promises.push(loadConfetti(c));
+        promises.push(safe(loadConfetti(c)));
     }
 
     if (opt?.additionalFont ?? true) {
-        promises.push(loadAdditionalFont(c));
+        promises.push(safe(loadAdditionalFont(c)));
     }
 
     return Promise.all(promises);

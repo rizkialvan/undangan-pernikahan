@@ -14,6 +14,11 @@ import { comment } from '../components/comment.js';
 import * as confetti from '../../libs/confetti.js';
 import { pool, request, HTTP_GET } from '../../connection/request.js';
 import { content } from './content.js';
+import { appearance } from '../../common/appearance.js';
+import { reveal } from './reveal.js';
+import { fx } from './fx.js';
+import { transitions } from './transitions.js';
+import { layout } from './layout.js';
 
 export const guest = (() => {
 
@@ -166,7 +171,9 @@ export const guest = (() => {
     const open = (button) => {
         button.disabled = true;
         document.body.scrollIntoView({ behavior: 'instant' });
-        document.getElementById('root').classList.remove('opacity-0');
+
+        const root = document.getElementById('root');
+        root.classList.remove('opacity-0');
 
         if (theme.isAutoMode()) {
             document.getElementById('button-theme').classList.remove('d-none');
@@ -175,11 +182,23 @@ export const guest = (() => {
         slide();
         theme.spyTop();
 
-        confetti.basicAnimation();
-        util.timeOut(confetti.openAnimation, 1500);
+        const applied = appearance.current() ?? {};
+        const effect = applied.fx ?? {};
+
+        // Confetti hanya kalau diizinkan CMS dan sesi tamu mengizinkan animasi.
+        if (effect.confetti !== false && document.body.getAttribute('data-confetti') === 'true') {
+            confetti.basicAnimation();
+            util.timeOut(confetti.openAnimation, 1500);
+        }
 
         document.dispatchEvent(new Event('undangan.open'));
-        util.changeOpacity(document.getElementById('welcome'), false).then((el) => el.remove());
+
+        transitions.open({
+            cover: document.getElementById('welcome'),
+            root,
+            transition: applied.cover?.transition ?? 'curtain',
+            duration: applied.cover?.duration ?? 1200
+        }).finally(() => fx.start(effect));
     };
 
     /**
@@ -351,6 +370,14 @@ export const guest = (() => {
 
         // Hidrasi konten CMS sebelum media dihitung progress-nya.
         await content.load(token, params.get('preview'));
+
+        // Urutan section dari CMS diterapkan sebelum reveal & scroll-spy,
+        // supaya observer mengamati urutan final.
+        layout.apply(content.data()?.layout?.sections, content.data()?.layout?.hidden);
+
+        // Reveal dipasang setelah section dari CMS selesai dibuat, supaya
+        // elemen dinamis (story, gift, dresscode) ikut teramati.
+        reveal.init();
 
         // Link tamu personal (?g=slug): simpan id tamu untuk laporan RSVP.
         const guestSlug = params.get('g');

@@ -19,6 +19,10 @@ class MediaController extends Controller
     private const MAX_AUDIO = 20 * 1024 * 1024;
     private const MAX_VIDEO = 40 * 1024 * 1024;
 
+    /** Sisi terpanjang gambar simpanan (hemat kuota tamu). */
+    private const MAX_IMAGE_DIMENSION = 1600;
+    private const WEBP_QUALITY = 82;
+
     private JsonResponse $json;
 
     public function __construct(JsonResponse $json)
@@ -95,15 +99,36 @@ class MediaController extends Controller
 
         @chmod($target, 0644);
 
-        $media = Media::create([
-            'user_id' => $userId,
+        // Kompresi otomatis: foto besar diperkecil & diubah ke WebP supaya
+        // halaman tamu tidak perlu mengunduh file 3 MB.
+        $final = [
             'filename' => $filename,
-            'original_name' => mb_substr($file->getClientOriginalName(), 0, 200),
             'mime' => $info['mime'],
             'size' => intval(filesize($target)),
-            'kind' => $info['kind'],
             'width' => $info['width'],
             'height' => $info['height'],
+        ];
+
+        $opt = $info['kind'] === 'image' ? $this->optimizeImage($target, $info['mime']) : null;
+        if (is_array($opt) && isset($opt['tmp']) && @rename($opt['tmp'], $target)) {
+            $final = [
+                'filename' => $filename,
+                'mime' => $opt['mime'],
+                'size' => intval(filesize($target)),
+                'width' => $opt['width'],
+                'height' => $opt['height'],
+            ];
+        }
+
+        $media = Media::create([
+            'user_id' => $userId,
+            'filename' => $final['filename'],
+            'original_name' => mb_substr($file->getClientOriginalName(), 0, 200),
+            'mime' => $final['mime'],
+            'size' => $final['size'],
+            'kind' => $info['kind'],
+            'width' => $final['width'],
+            'height' => $final['height'],
         ]);
 
         return $this->json->success($this->toArray($media), 201);
@@ -157,6 +182,13 @@ class MediaController extends Controller
             @unlink($oldPath);
         }
 
+        $opt = $info['kind'] === 'image' ? $this->optimizeImage($target, $info['mime']) : null;
+        if (is_array($opt) && isset($opt['tmp']) && @rename($opt['tmp'], $target)) {
+            $info['mime'] = $opt['mime'];
+            $info['width'] = $opt['width'];
+            $info['height'] = $opt['height'];
+        }
+
         $media->fill([
             'filename' => $filename,
             'original_name' => mb_substr($file->getClientOriginalName(), 0, 200),
@@ -186,6 +218,178 @@ class MediaController extends Controller
         $media->destroy();
 
         return $this->json->successStatusTrue();
+    }
+
+/**
+     * Optimalkan gambar yang sudah ada (dipakai tombol "Optimalkan" di CMS).
+     */
+    public function optimize(string $id): JsonResponse
+    {
+        $media = Media::where('id', intval($id))->where('user_id', intval(Auth::id()))->limit(1)->first();
+
+        if (!$media->exist()) {
+            return $this->json->errorNotFound();
+        }
+
+        if ($media->kind !== 'image' || $media->mime === 'image/gif') {
+            return $this->json->errorBadRequest(['Hanya foto JPG/PNG/WEBP yang bisa dioptimalkan.']);
+        }
+
+        $dir = $this->storageDir(intval($media->user_id));
+        $path = $dir . '/' . $media->filename;
+
+        if (!is_file($path)) {
+            return $this->json->errorNotFound();
+        }
+
+        $before = intval(@filesize($path));
+        $opt = $this->optimizeImage($path, $media->mime);
+
+        if (!is_array($opt)) {
+            return $this->json->errorBadRequest(['Gambar tidak bisa dibaca ulang.']);
+        }
+
+        if (!isset($opt['tmp'])) {
+            return $this->json->successOK([
+                'item' => $this->toArray(Media::where('id', intval($id))->limit(1)->first()),
+                'before' => $before,
+                'saved' => 0,
+            ]);
+        }
+
+        // Nama file TIDAK diubah: URL yang sudah dipakai konten tetap valid.
+        if (!@rename($opt['tmp'], $path)) {
+            @unlink($opt['tmp']);
+            return $this->json->errorServer();
+        }
+
+        $media->fill([
+            'filename' => $media->filename,
+            'mime' => $opt['mime'],
+            'size' => intval(@filesize($path)),
+            'width' => $opt['width'],
+            'height' => $opt['height'],
+        ])->save();
+
+        $fresh = Media::where('id', intval($id))->limit(1)->first();
+
+        return $this->json->successOK([
+            'item' => $this->toArray($fresh),
+            'before' => $before,
+            'saved' => max(0, $before - intval($fresh->size)),
+        ]);
+    }
+
+    /**
+     * Perkecil + encode ulang gambar. Null = tidak bisa diproses,
+     * tanpa key 'tmp' = sudah cukup kecil (file asli dipertahankan).
+     *
+     * @return array{tmp?: string, ext?: string, mime?: string, size?: int, width: int, height: int, old?: int}|null
+     */
+    private function optimizeImage(string $path, string $mime): ?array
+    {
+        if (!function_exists('imagecreatefromstring') || $mime === 'image/gif') {
+            return null;
+        }
+
+        $raw = @file_get_contents($path);
+        if ($raw === false || $raw === '') {
+            return null;
+        }
+
+        $img = @imagecreatefromstring($raw);
+        if ($img === false) {
+            return null;
+        }
+
+        $width = imagesx($img);
+        $height = imagesy($img);
+
+        // Foto HP sering menyimpan rotasi di EXIF; GD tidak membacanya sendiri.
+        $orientation = 1;
+        if ($mime === 'image/jpeg' && function_exists('exif_read_data')) {
+            $exif = @exif_read_data($path);
+            $orientation = intval($exif['Orientation'] ?? 1);
+        }
+
+        $angle = match ($orientation) {
+            3 => 180,
+            6 => -90,
+            8 => 90,
+            default => 0,
+        };
+
+        if ($angle !== 0) {
+            $rotated = @imagerotate($img, $angle, 0);
+            if ($rotated !== false) {
+                imagedestroy($img);
+                $img = $rotated;
+                $width = imagesx($img);
+                $height = imagesy($img);
+            }
+        }
+
+        $scale = min(1.0, self::MAX_IMAGE_DIMENSION / max($width, $height));
+        $resized = $scale < 0.999;
+
+        if ($resized) {
+            $newWidth = max(1, (int) round($width * $scale));
+            $newHeight = max(1, (int) round($height * $scale));
+            $dst = imagecreatetruecolor($newWidth, $newHeight);
+            imagealphablending($dst, false);
+            imagesavealpha($dst, true);
+            imagecopyresampled($dst, $img, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+            imagedestroy($img);
+            $img = $dst;
+            $width = $newWidth;
+            $height = $newHeight;
+        }
+
+        $tmp = $path . '.opt';
+        $ext = 'webp';
+        $outMime = 'image/webp';
+
+        imagealphablending($img, false);
+        imagesavealpha($img, true);
+        $ok = function_exists('imagewebp') ? @imagewebp($img, $tmp, self::WEBP_QUALITY) : false;
+
+        if (!$ok) {
+            // Fallback: JPEG (tanpa transparansi).
+            $ext = 'jpg';
+            $outMime = 'image/jpeg';
+            $flat = imagecreatetruecolor($width, $height);
+            imagefill($flat, 0, 0, imagecolorallocate($flat, 255, 255, 255));
+            imagecopy($flat, $img, 0, 0, 0, 0, $width, $height);
+            $ok = @imagejpeg($flat, $tmp, 85);
+            imagedestroy($flat);
+        }
+
+        imagedestroy($img);
+
+        if (!$ok || !is_file($tmp)) {
+            @unlink($tmp);
+            return null;
+        }
+
+        clearstatcache(true, $path);
+        $oldSize = intval(@filesize($path));
+        $newSize = intval(@filesize($tmp));
+
+        // Sudah kecil & tidak perlu di-resize: biarkan file asli.
+        if (!$resized && $newSize >= $oldSize * 0.92) {
+            @unlink($tmp);
+            return ['width' => $width, 'height' => $height];
+        }
+
+        return [
+            'tmp' => $tmp,
+            'ext' => $ext,
+            'mime' => $outMime,
+            'size' => $newSize,
+            'width' => $width,
+            'height' => $height,
+            'old' => $oldSize,
+        ];
     }
 
     /**

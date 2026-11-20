@@ -25,5 +25,7 @@ final class Guest extends Model
         'category',
         'note',
         'sent_at',
+        'opened_at',
+        'visit_count',
     ];
 }

@@ -172,12 +172,45 @@ final class InvitationContent
                 'volume' => 100,
             ],
             'theme' => [
+                'preset' => 'default',
                 'mode' => 'auto',
                 'accent' => '#8c7853',
+                'palette' => [
+                    'bg' => '',
+                    'surface' => '',
+                    'surface_alt' => '',
+                    'text' => '',
+                    'muted' => '',
+                    'line' => '',
+                ],
                 'font' => 'Josefin Sans',
                 'font_body' => '',
+                'motion' => [
+                    'reveal' => 'fade-up',
+                    'duration' => 900,
+                    'stagger' => 90,
+                    'easing' => 'out-expo',
+                    'smooth' => false,
+                ],
+                'cover' => [
+                    'transition' => 'curtain',
+                    'duration' => 1200,
+                ],
+                'fx' => [
+                    'confetti' => true,
+                    'petals' => 'none',
+                    'intensity' => 2,
+                    'overlay' => '',
+                    'overlay_pos' => 'bottom',
+                    'cursor' => 'none',
+                ],
                 'animation' => true,
                 'background' => '',
+                'background_opacity' => 100,
+            ],
+            'layout' => [
+                'sections' => ['home', 'bride', 'quotes', 'story', 'date', 'gallery', 'gift', 'comment', 'closing'],
+                'hidden' => [],
             ],
             'settings' => [
                 'timezone' => 'Asia/Jakarta',
@@ -367,12 +400,85 @@ final class InvitationContent
         }
 
         $out['theme'] = [
+            'preset' => self::slug($data['theme']['preset'] ?? null),
             'mode' => $mode,
             'accent' => self::color($data['theme']['accent'] ?? null, $defaults['theme']['accent']),
+            'palette' => [
+                'bg' => self::colorOrNull($data['theme']['palette']['bg'] ?? null),
+                'surface' => self::colorOrNull($data['theme']['palette']['surface'] ?? null),
+                'surface_alt' => self::colorOrNull($data['theme']['palette']['surface_alt'] ?? null),
+                'text' => self::colorOrNull($data['theme']['palette']['text'] ?? null),
+                'muted' => self::colorOrNull($data['theme']['palette']['muted'] ?? null),
+                'line' => self::colorOrNull($data['theme']['palette']['line'] ?? null),
+            ],
             'font' => self::text($data['theme']['font'] ?? null, $defaults['theme']['font'], 60),
             'font_body' => self::text($data['theme']['font_body'] ?? null, '', 60),
+            'motion' => [
+                'reveal' => self::enum(
+                    $data['theme']['motion']['reveal'] ?? null,
+                    'fade-up',
+                    ['none', 'fade', 'fade-up', 'zoom', 'blur', 'mask', 'slide-left', 'slide-right']
+                ),
+                'duration' => self::clampInt($data['theme']['motion']['duration'] ?? null, 900, 200, 2000),
+                'stagger' => self::clampInt($data['theme']['motion']['stagger'] ?? null, 90, 0, 300),
+                'easing' => self::enum(
+                    $data['theme']['motion']['easing'] ?? null,
+                    'out-expo',
+                    ['linear', 'out-quad', 'out-expo', 'in-out', 'spring']
+                ),
+                'smooth' => self::bool($data['theme']['motion']['smooth'] ?? null, false),
+            ],
+            'cover' => [
+                'transition' => self::enum(
+                    $data['theme']['cover']['transition'] ?? null,
+                    'curtain',
+                    ['none', 'fade', 'curtain', 'zoom', 'flip']
+                ),
+                'duration' => self::clampInt($data['theme']['cover']['duration'] ?? null, 1200, 300, 2500),
+            ],
+            'fx' => [
+                'confetti' => self::bool($data['theme']['fx']['confetti'] ?? null, true),
+                'petals' => self::enum(
+                    $data['theme']['fx']['petals'] ?? null,
+                    'none',
+                    ['none', 'rose', 'sakura', 'gold', 'snow']
+                ),
+                'intensity' => self::clampInt($data['theme']['fx']['intensity'] ?? null, 2, 1, 3),
+                'overlay' => self::url($data['theme']['fx']['overlay'] ?? null, ''),
+                'overlay_pos' => self::enum(
+                    $data['theme']['fx']['overlay_pos'] ?? null,
+                    'bottom',
+                    ['top', 'bottom', 'full']
+                ),
+                'cursor' => self::enum($data['theme']['fx']['cursor'] ?? null, 'none', ['none', 'sparkle']),
+            ],
             'animation' => self::bool($data['theme']['animation'] ?? null, true),
             'background' => self::url($data['theme']['background'] ?? null, ''),
+            'background_opacity' => self::clampInt($data['theme']['background_opacity'] ?? null, 100, 0, 100),
+        ];
+
+        $allowedSections = ['home', 'bride', 'quotes', 'story', 'date', 'gallery', 'gift', 'comment', 'closing'];
+        $order = [];
+        foreach (self::arr($data['layout']['sections'] ?? null) as $key) {
+            if (is_string($key) && in_array($key, $allowedSections, true) && !in_array($key, $order, true)) {
+                $order[] = $key;
+            }
+        }
+        foreach ($allowedSections as $key) {
+            if (!in_array($key, $order, true)) {
+                $order[] = $key;
+            }
+        }
+        $hidden = [];
+        foreach (self::arr($data['layout']['hidden'] ?? null) as $key) {
+            if (is_string($key) && in_array($key, $allowedSections, true) && !in_array($key, $hidden, true)) {
+                $hidden[] = $key;
+            }
+        }
+
+        $out['layout'] = [
+            'sections' => $order,
+            'hidden' => $hidden,
         ];
 
         $tz = self::text($data['settings']['timezone'] ?? null, 'Asia/Jakarta', 70);
@@ -477,6 +583,44 @@ final class InvitationContent
         }
 
         return strtolower($value);
+    }
+
+    /**
+     * Warna opsional: string kosong berarti "ikut preset/bawaan".
+     */
+    private static function colorOrNull(mixed $value): string
+    {
+        if (!is_string($value) || !preg_match('/^#[0-9a-fA-F]{3,8}$/', $value)) {
+            return '';
+        }
+
+        return strtolower($value);
+    }
+
+    /**
+     * @param string[] $allowed
+     */
+    private static function enum(mixed $value, string $default, array $allowed): string
+    {
+        return is_string($value) && in_array($value, $allowed, true) ? $value : $default;
+    }
+
+    private static function clampInt(mixed $value, int $default, int $min, int $max): int
+    {
+        if (!is_numeric($value)) {
+            return $default;
+        }
+
+        return max($min, min($max, (int) $value));
+    }
+
+    private static function slug(mixed $value, string $default = 'default'): string
+    {
+        if (!is_string($value) || !preg_match('/^[a-z0-9-]{2,32}$/', $value)) {
+            return $default;
+        }
+
+        return $value;
     }
 
     /**

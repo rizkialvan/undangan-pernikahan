@@ -3,6 +3,8 @@ import { store } from './store.js';
 import { ui } from './ui.js';
 import { rsvpPanel } from './rsvp.js';
 import { accountPanel } from './account.js';
+import { themePanel } from './theme.js';
+import { layoutPanel } from './layout.js';
 import { FONT_CATEGORIES, ensureFontStylesheet, filterFonts, fontStack } from '../../common/fonts.js';
 
 const { esc, icon } = ui;
@@ -106,6 +108,8 @@ export const panels = (() => {
         }
 
         const presence = o.presence ?? { present: 0, absent: 0, total: 0 };
+        const open = o.guest_open ?? { total: o.guests ?? 0, opened: 0, pending: o.guests ?? 0 };
+        const openPct = open.total > 0 ? Math.round((open.opened / open.total) * 100) : 0;
         const dateIso = draft.settings?.date_iso;
 
         const recent = (o.recent ?? []).map((r) => `
@@ -134,11 +138,18 @@ export const panels = (() => {
                 ${draft.cover?.photo ? `<div class="hero-photo"><img src="${esc(draft.cover.photo)}" alt="" loading="lazy"></div>` : ''}
             </div>
 
+            <div class="grid grid-4" style="margin-bottom:14px;">
+                <div class="stat is-gold"><span class="stat-dot"></span><div class="stat-label">Total Undangan</div><div class="stat-value">${open.total}</div><div class="stat-foot">link personal tamu</div></div>
+                <div class="stat" data-go="guests" style="cursor:pointer" title="Lihat daftar tamu"><div class="stat-label">Sudah Dibuka</div><div class="stat-value">${open.opened}</div><div class="stat-foot">${openPct}% dari total undangan</div></div>
+                <div class="stat" data-go="guests" style="cursor:pointer" title="Lihat daftar tamu"><div class="stat-label">Belum Dibuka</div><div class="stat-value">${open.pending}</div><div class="stat-foot">${open.pending > 0 ? 'tamu belum membuka link' : 'semua sudah membuka'}</div></div>
+                <div class="stat"><div class="stat-label">Tingkat Dibuka</div><div class="stat-value">${openPct}%</div><div class="completeness" style="margin-top:10px"><i style="width:${openPct}%"></i></div></div>
+            </div>
+
             <div class="grid grid-4" style="margin-bottom:18px;">
-                <div class="stat is-gold"><span class="stat-dot"></span><div class="stat-label">Total Tamu</div><div class="stat-value">${o.guests ?? 0}</div><div class="stat-foot">daftar undangan personal</div></div>
                 <div class="stat"><div class="stat-label">RSVP Masuk</div><div class="stat-value">${presence.total}</div><div class="stat-foot">ucapan & doa</div></div>
                 <div class="stat"><div class="stat-label">Hadir</div><div class="stat-value">${presence.present}</div><div class="stat-foot">konfirmasi datang</div></div>
                 <div class="stat"><div class="stat-label">Tidak Hadir</div><div class="stat-value">${presence.absent}</div><div class="stat-foot">berhalangan</div></div>
+                <div class="stat"><div class="stat-label">Like Ucapan</div><div class="stat-value">${o.likes ?? 0}</div><div class="stat-foot">interaksi tamu</div></div>
             </div>
 
             <div class="grid grid-2">
@@ -170,7 +181,6 @@ export const panels = (() => {
                 <div class="kv"><span>Terakhir publish</span><span>${ui.fmtDate(o.content?.published_at, true)}</span></div>
                 <div class="kv"><span>Perubahan belum publish</span><span>${o.content?.has_changes ? 'Ada' : 'Tidak ada'}</span></div>
                 <div class="kv"><span>Media tersimpan</span><span>${o.media ?? 0} file</span></div>
-                <div class="kv"><span>Like ucapan</span><span>${o.likes ?? 0}</span></div>
             </div>
         `;
 
@@ -487,6 +497,7 @@ export const panels = (() => {
                             : `<div style="display:grid;place-items:center;height:100%;color:#8a6c3c;">${icon(m.kind === 'audio' ? 'music' : 'media', 32)}</div>`}
                         <div class="thumb-actions">
                             <button data-act="copy" title="Salin URL">${icon('link', 12)}</button>
+                            ${m.kind === 'image' && m.mime !== 'image/gif' ? `<button data-act="optimize" title="Kompres & perkecil">${icon('refresh', 12)}</button>` : ''}
                             <button data-act="replace" title="Ganti file">${icon('upload', 12)}</button>
                             <button data-act="delete" title="Hapus">${icon('trash', 12)}</button>
                         </div>
@@ -501,6 +512,29 @@ export const panels = (() => {
                     node.querySelector('[data-act="copy"]').addEventListener('click', (e) => {
                         e.stopPropagation();
                         ui.copy(item.url, 'URL media disalin');
+                    });
+
+                    node.querySelector('[data-act="optimize"]')?.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        e.currentTarget.disabled = true;
+
+                        try {
+                            const res = await api.optimizeMedia(item.id);
+                            const after = res?.item?.size ?? 0;
+
+                            if (res?.saved > 0) {
+                                ui.toast(`Dikompres ${ui.fmtBytes(res.before)} → ${ui.fmtBytes(after)}`);
+                            } else {
+                                ui.toast('Gambar sudah cukup ringan');
+                            }
+
+                            const data = await api.media();
+                            items = data.items ?? [];
+                            render();
+                        } catch (err) {
+                            ui.toast(err.message, 'error');
+                            e.currentTarget.disabled = false;
+                        }
                     });
 
                     node.querySelector('[data-act="delete"]').addEventListener('click', async (e) => {
@@ -575,7 +609,11 @@ export const panels = (() => {
                 if (!file) return;
                 try {
                     ui.toast('Mengunggah ' + file.name + '…');
-                    await api.upload(file);
+                    const media = await api.upload(file);
+                    const saved = media && media.size < file.size ? file.size - media.size : 0;
+                    ui.toast(saved > 0
+                        ? `Terunggah & dikompres ${ui.fmtBytes(file.size)} → ${ui.fmtBytes(media.size)}`
+                        : `Terunggah: ${file.name}`);
                     await load();
                     ui.toast('Upload selesai');
                 } catch (err) {
@@ -665,7 +703,7 @@ export const panels = (() => {
                     holder.innerHTML = `
                         <div class="table-wrap" style="border:0;">
                             <table>
-                                <thead><tr><th style="width:26px;"><input type="checkbox" data-check-all aria-label="Pilih semua"></th><th>Nama</th><th>Kategori</th><th>WhatsApp</th><th>RSVP</th><th></th></tr></thead>
+                                <thead><tr><th style="width:26px;"><input type="checkbox" data-check-all aria-label="Pilih semua"></th><th>Nama</th><th>Kategori</th><th>WhatsApp</th><th>Dibuka</th><th>RSVP</th><th></th></tr></thead>
                                 <tbody>
                                     ${items.map((g) => `
                                         <tr data-id="${g.id}">
@@ -676,6 +714,9 @@ export const panels = (() => {
                                             </td>
                                             <td>${g.category ? `<span class="badge is-grey">${esc(g.category)}</span>` : '<span class="muted">—</span>'}</td>
                                             <td>${esc(g.phone ?? '—')}</td>
+                                            <td>${g.opened_at
+                                                ? `<span class="badge is-green" title="Pertama dibuka ${esc(ui.fmtDate(g.opened_at, true))}">${Number(g.visit_count) > 1 ? `${Number(g.visit_count)}×` : 'Sudah'}</span>`
+                                                : '<span class="badge is-grey">Belum</span>'}</td>
                                             <td>${g.rsvp === null
                                                 ? '<span class="badge is-grey">Belum</span>'
                                                 : g.rsvp.presence
@@ -695,7 +736,7 @@ export const panels = (() => {
                             </table>
                         </div>
                         <div class="row" style="padding:12px 16px;border-top:1px solid var(--line);justify-content:space-between;">
-                            <span class="muted tiny">${items.length} dari ${data.total} tamu</span>
+                            <span class="muted tiny">${items.length} dari ${data.total} tamu · ${items.filter((g) => g.opened_at).length} sudah buka</span>
                         </div>
                     `;
 
@@ -853,13 +894,6 @@ export const panels = (() => {
 
     const appearance = () => {
         const theme = store.get('theme', {}) ?? {};
-        const presets = [
-            { name: 'Champagne', color: '#b08d57' },
-            { name: 'Rosé', color: '#b9736c' },
-            { name: 'Sage', color: '#7c8f74' },
-            { name: 'Midnight', color: '#4a566b' }
-        ];
-
         return {
             title: 'Tampilan',
             subtitle: 'Tipografi, musik, warna, dan animasi',
@@ -953,23 +987,10 @@ export const panels = (() => {
                                 </div>
                             </div>
 
-                            <!-- Warna aksen -->
+                            <!-- Warna, transisi, dan efek pindah ke menu Tema & Efek -->
                             <div class="card">
-                                <div class="card-head"><div><h2>Warna Aksen</h2><p>Dipakai pada tombol dan aksen garis.</p></div></div>
-                                <div class="color-row">
-                                    ${presets.map((p) => `<div class="swatch ${theme.accent === p.color ? 'is-active' : ''}" style="background:${p.color}" data-swatch="${p.color}" title="${p.name}"></div>`).join('')}
-                                    <input type="color" class="color-input" data-bind="theme.accent" value="${esc(theme.accent ?? '#b08d57')}">
-                                </div>
-                                <div class="grid grid-2" style="margin-top:14px;">
-                                    <label class="field"><span class="label">Mode tampilan</span>
-                                        <select class="select" data-bind="theme.mode">
-                                            <option value="auto" ${theme.mode === 'auto' ? 'selected' : ''}>Ikuti sistem</option>
-                                            <option value="light" ${theme.mode === 'light' ? 'selected' : ''}>Terang</option>
-                                            <option value="dark" ${theme.mode === 'dark' ? 'selected' : ''}>Gelap</option>
-                                        </select>
-                                    </label>
-                                </div>
-                                <div class="row" style="margin-top:14px;">${ui.switchField({ label: 'Animasi & confetti', bind: 'theme.animation', checked: theme.animation !== false })}</div>
+                                <div class="card-head"><div><h2>Warna &amp; Efek</h2><p>Warna aksen, palet, transisi buka undangan, dan efek dekoratif sekarang diatur di menu Tema &amp; Efek.</p></div></div>
+                                <button class="btn btn-sm" type="button" data-goto-theme>${icon('appearance', 13)} Buka Tema &amp; Efek</button>
                             </div>
 
                         </div>
@@ -985,12 +1006,6 @@ export const panels = (() => {
                             <iframe class="preview-frame" data-preview src="about:blank" title="Pratinjau undangan"></iframe>
                             <p class="hint" style="margin-top:10px;">Pratinjau memakai konten draft yang sudah tersimpan (klik <strong>Save draft</strong> dulu).</p>
                         </div>
-                    </div>
-
-                    <!-- Background -->
-                    <div class="card">
-                        <div class="card-head"><div><h2>Background</h2><p>Gambar latar seluruh halaman (opsional).</p></div></div>
-                        ${photoField('Gambar background', 'theme.background', theme.background ?? '', 'Kosongkan untuk memakai background bawaan tema.')}
                     </div>
                 </div>
             `,
@@ -1261,11 +1276,8 @@ export const panels = (() => {
                     }
                 };
 
-                root.querySelectorAll('[data-swatch]').forEach((el) => {
-                    el.addEventListener('click', () => {
-                        store.set('theme.accent', el.getAttribute('data-swatch'));
-                        ctxRef.rerender();
-                    });
+                root.querySelector('[data-goto-theme]')?.addEventListener('click', () => {
+                    window.studioUndangan?.navigate('theme');
                 });
 
                 root.querySelector('[data-preview-reload]').addEventListener('click', loadPreview);
@@ -1635,6 +1647,8 @@ export const panels = (() => {
         wa: waPanel,
         rsvp: () => rsvpPanel(ctxRef),
         account: () => accountPanel(ctxRef),
+        theme: themePanel,
+        layout: layoutPanel,
         appearance,
         website
     };

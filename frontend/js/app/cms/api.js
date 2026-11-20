@@ -127,6 +127,8 @@ export const api = (() => {
         previewToken: () => request('POST', '/api/admin/preview-token'),
 
         media: () => request('GET', '/api/admin/media'),
+        optimizeMedia: (id) => request('POST', `/api/admin/media/${id}/optimize`),
+
         upload: (file, onProgress = null) => new Promise((resolve, reject) => {
             const form = new FormData();
             form.append('file', file);

@@ -4,10 +4,12 @@ RUN apt-get update --fix-missing
 RUN apt-get install -y zip unzip libonig-dev libicu-dev
 RUN apt-get install -y libzip-dev libpq-dev
 RUN apt-get install -y build-essential libssl-dev zlib1g-dev
+RUN apt-get install -y libpng-dev libjpeg62-turbo-dev libwebp-dev libfreetype6-dev
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN docker-php-ext-install pdo zip pdo_pgsql pgsql opcache intl bcmath mbstring
-RUN docker-php-ext-enable pdo zip pdo_pgsql pgsql opcache intl bcmath mbstring
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp
+RUN docker-php-ext-install pdo zip pdo_pgsql pgsql opcache intl bcmath mbstring gd exif
+RUN docker-php-ext-enable pdo zip pdo_pgsql pgsql opcache intl bcmath mbstring gd exif
 
 COPY /api/php.ini /usr/local/etc/php/conf.d/opcache.ini
 
