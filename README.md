@@ -417,9 +417,9 @@ docker compose up -d --build
 - **Gambar halaman** di produksi sudah dinormalkan ke WebP q80 (sisi panjang 1200–1400) dan audio
   ke 96 kbps stereo 44,1 kHz; kalau mengganti file secara manual, perbarui juga `size`/`width`/`height`
   di tabel `media` (ETag = `md5(filename|size)`).
-- **Backup** (`scripts/undangan-backup.sh`): `pg_dump -Fc` tiap jam, arsip `storage/uploads` harian,
-  retensi 14 hari. Salinannya ditarik ke host lain (`pull-backup.sh`, retensi 21 hari).
-- **Monitoring** (`scripts/undangan-health.sh`): probe `/api/v2/config` tiap 2 menit; alert setelah
+- **Backup** (cron di host, di luar repo): `pg_dump -Fc` tiap jam, arsip `storage/uploads` harian,
+  retensi 14 hari, plus salinan yang ditarik ke host terpisah (retensi 21 hari).
+- **Monitoring** (cron di host, di luar repo): probe `/api/v2/config` tiap 2 menit; alert setelah
   3 kegagalan berturut dan notifikasi saat pulih. Endpoint `/health` statis tidak dipakai karena
   tidak menyentuh API/DB.
 - **Rollback**: tag image sebelum deploy (`docker tag <image> <image>:prev-<tanggal>`); untuk stack API
