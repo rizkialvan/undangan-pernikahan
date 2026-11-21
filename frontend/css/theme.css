@@ -278,14 +278,21 @@ html[data-page-bg] #root {
     z-index: 1;
 }
 
+/* Kekuatan tabir di atas foto latar. Makin kecil persen = foto makin jelas.
+   Bisa disetel per tema tanpa menyentuh aturan lain. */
+html[data-page-bg] {
+    --cms-veil: 48%;
+    --cms-veil-strong: 58%;
+}
+
 html[data-page-bg] .bg-light-dark {
-    background-color: rgba(var(--bs-body-bg-rgb, 255, 255, 255), .74) !important;
-    background-color: color-mix(in srgb, var(--bs-body-bg, #ffffff) 74%, transparent) !important;
+    background-color: rgba(var(--bs-body-bg-rgb, 255, 255, 255), .48) !important;
+    background-color: color-mix(in srgb, var(--bs-body-bg, #ffffff) var(--cms-veil), transparent) !important;
 }
 
 html[data-page-bg] .bg-white-black {
-    background-color: rgba(var(--bs-body-bg-rgb, 255, 255, 255), .82) !important;
-    background-color: color-mix(in srgb, var(--bs-body-bg, #ffffff) 82%, transparent) !important;
+    background-color: rgba(var(--bs-body-bg-rgb, 255, 255, 255), .58) !important;
+    background-color: color-mix(in srgb, var(--bs-body-bg, #ffffff) var(--cms-veil-strong), transparent) !important;
 }
 
 /* Penyambung gelombang (wave separator). Saat latar foto dipakai, seluruh

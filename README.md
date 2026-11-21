@@ -424,6 +424,11 @@ docker compose up -d --build
   tidak menyentuh API/DB.
 - **Rollback**: tag image sebelum deploy (`docker tag <image> <image>:prev-<tanggal>`); untuk stack API
   `docker compose up -d app` setelah me-retag `:prev` sudah cukup.
+- **Latar halaman**: foto latar digambar di layer `.cms-page-bg` (opasitasnya dari
+  `theme.background_opacity`), lalu tiap section diberi tabir putih agar teks tetap terbaca.
+  Kekuatan tabir diatur dua variabel di `css/theme.css`: `--cms-veil` (section terang, 48%) dan
+  `--cms-veil-strong` (section kontras, 58%). Makin kecil nilainya, makin jelas foto latar;
+  nilai lama 74%/82% membuat latar nyaris tak terlihat.
 - **Dashboard lama dihapus**: `frontend/dashboard.html`, entri `build:public` di `package.json`, dan
   route `/dashboard` (kini 404).
 
