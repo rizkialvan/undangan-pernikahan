@@ -26,6 +26,7 @@ RUN apk add --no-cache gettext
 
 # Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
+COPY security-headers.conf /etc/nginx/security-headers.conf
 
 # Copy built assets from builder stage
 COPY --from=builder /app/public /usr/share/nginx/html

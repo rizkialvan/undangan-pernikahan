@@ -423,15 +423,15 @@ class MediaController extends Controller
         header('Content-Type: ' . ($media->mime ?: 'application/octet-stream'));
         header('Cache-Control: public, max-age=31536000, immutable');
         header('ETag: ' . $etag);
-        header('Accept-Ranges: none');
 
         if (($_SERVER['HTTP_IF_NONE_MATCH'] ?? '') === $etag) {
             http_response_code(304);
             exit;
         }
 
-        header('Content-Length: ' . filesize($path));
-        readfile($path);
+        // Transfer byte ditangani nginx (sendfile + Range/206), bukan PHP.
+        // PHP hanya memvalidasi kepemilikan & mime, lalu keluar.
+        header('X-Accel-Redirect: /_media/' . intval($media->user_id) . '/' . $media->filename);
         exit;
     }
 

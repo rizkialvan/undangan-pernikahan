@@ -30,7 +30,8 @@ Undangan pernikahan online untuk **satu pasangan** (bukan SaaS multi-tenant), di
 
 ### Halaman tamu (`/`)
 
-- Cover dengan nama tamu personal: `/?to=Nama&g=slug&k=access_key`
+- Cover dengan nama tamu personal: `/?to=Nama&g=slug&t=public_token`
+  (tautan lama `&k=access_key` tetap diterima, jadi link yang sudah tersebar tidak mati)
 - Hitung mundur, jadwal akad & resepsi, lokasi + Google Maps, dress code
 - Love story, galeri carousel, love gift (transfer / QRIS / hadiah)
 - Ucapan & RSVP: hadir / tidak hadir, balasan, like, moderasi
@@ -39,7 +40,11 @@ Undangan pernikahan online untuk **satu pasangan** (bukan SaaS multi-tenant), di
   transisi cover (curtain / fade / zoom / flip), confetti, kelopak, overlay, kilau kursor
 - Urutan section bisa diatur ulang dan sebagian disembunyikan
 - Pelacakan kunjungan: `opened_at` (pertama dibuka) + `visit_count` per tamu
-- Konten dihidrasi dari API saat dibuka; kalau API gagal, markup statis dipakai sebagai fallback
+- Konten dihidrasi dari API saat dibuka; kalau API gagal, markup statis tetap tampil (fail-open)
+- **Lagu tidak diunduh saat boot** — baru diambil setelah tamu menekan *Open Invitation*
+- **Media dilayani langsung oleh nginx** (`X-Accel-Redirect`), mendukung HTTP Range/206 sehingga
+  audio bisa di-stream dan video di-seek
+- Payload awal ±2,4 MB (gambar sudah WebP q80; audio 96 kbps stereo ±2,3 MB menyusul saat dibuka)
 
 ### Studio Undangan (`/admin`)
 
@@ -63,6 +68,18 @@ Undangan pernikahan online untuk **satu pasangan** (bukan SaaS multi-tenant), di
 - Antrean di dalam gateway, jeda tetap, kuota harian, jendela jam, validasi nomor `onWhatsApp`
 - Status pesan dari ack WhatsApp (`messages.update`: 2 server, 3 diterima, 4 dibaca)
 
+### Ketahanan & operasional
+
+- **Header keamanan** di semua halaman: CSP, X-Frame-Options, nosniff, Referrer-Policy,
+  Permissions-Policy, HSTS — dijaga satu snippet (`security-headers.conf`) agar tidak hilang
+  saat sebuah `location` punya `add_header` sendiri
+- **Rate limit terarah**: `POST /api/session` 6/menit (brute force), `POST /api/comment` 2/detik;
+  GET konten sengaja **tidak** dibatasi agar tamu di balik CGNAT tidak saling menendang
+- **Backup otomatis**: `pg_dump -Fc` tiap jam + arsip media harian, retensi 14 hari, salinan off-host
+- **Monitoring**: probe `/api/v2/config` tiap 2 menit, alert setelah 3 kegagalan berturut + notifikasi pulih
+- **PHP**: `display_errors=Off`, `expose_php=Off`, `request_terminate_timeout=300s`,
+  `pm.max_children=8`, `pm.max_requests=500`
+
 ---
 
 ## 2. Tech Stack
@@ -72,11 +89,11 @@ Undangan pernikahan online untuk **satu pasangan** (bukan SaaS multi-tenant), di
 | Markup & style | HTML5, CSS3 (custom properties) | — | Bootstrap 5.3.8 + Font Awesome 7.1.0 dari CDN, di-pin dengan SRI |
 | Frontend JS | Vanilla ES Modules (tanpa framework) | ES2020+ | 2 entry: `js/guest.js`, `js/cms.js` |
 | Bundler | esbuild | ^0.25.10 | `npm run build` → `dist/guest.js`, `dist/cms.js` |
-| Web server | nginx (`nginx:alpine`) | 1.27 | CSP, gzip, cache split (`no-store` untuk JS/CSS/HTML), proxy same-origin `/api/` |
-| API | PHP-FPM (`php:8.2-fpm`) | 8.2 | ext: `pdo_pgsql`, `gd` (+webp, freetype), `exif`, `intl`, `bcmath`, `mbstring`, `opcache` |
+| Web server | nginx (`nginx:alpine`) | 1.27 | CSP + header keamanan (`security-headers.conf`), gzip, cache split (`no-store` untuk JS/CSS/HTML), `limit_req` login & komentar, proxy same-origin `/api/` |
+| API | PHP-FPM (`php:8.2-fpm`) | 8.2 | ext: `pdo_pgsql`, `gd` (+webp, freetype), `exif`, `intl`, `bcmath`, `mbstring`, `opcache`; pool tuning di `api/php-fpm-tuning.conf` |
 | Framework | Kamu Framework | ^3.3 | Router, Model/Query, Middleware, Validator, JWT via `firebase/php-jwt` ^6.3 |
 | Database | PostgreSQL (`postgres:16-alpine`) | 16 | Volume `undangan-api_postgres_data` |
-| API web server | nginx (`nginx-unprivileged`) | — | `:3001 → :8080`, fastcgi ke `app:9000` |
+| API web server | nginx (`nginx-unprivileged`) | — | `:3001 → :8080`, fastcgi ke `app:9000` (di-resolve ulang tiap 10 s), `/_media/` internal untuk `X-Accel-Redirect` |
 | WA gateway | Node (`node:22-bookworm-slim`) + Express | 22 / ^4.21 | `@whiskeysockets/baileys` 6.7.24, `pino`, `qrcode`, `pg`, `link-preview-js` |
 | Orkestrasi | Docker Engine + Compose | 29 / v5 | Healthcheck, resource limit, `no-new-privileges`, `cap_drop: ALL` |
 | Edge / TLS | Nginx Proxy Manager (openresty) | v2.14 | Terminasi TLS Let's Encrypt, proxy ke `:3000` |
@@ -105,6 +122,7 @@ flowchart LR
             DB[("undangan-db<br/>PostgreSQL 16")]
         end
         VOL[["volume ./storage<br/>uploads media"]]
+        MEDIA[["mount read-only<br/>storage/uploads"]]
         WA["wa-gateway<br/>Node 22 · Baileys 6.7"]
     end
 
@@ -116,7 +134,8 @@ flowchart LR
     WEB -->|"location /api/ · same-origin proxy"| AN
     AN -->|fastcgi| APP
     APP --> DB
-    APP -->|"tulis/baca file"| VOL
+    APP -->|"tulis file"| VOL
+    AN -->|"X-Accel-Redirect /_media"| MEDIA
     APP -->|"HTTP · header x-wa-token"| WA
     WA -->|"WhatsApp multi-device"| WAP
     WA --> DB
@@ -126,8 +145,9 @@ Catatan desain:
 
 - **Satu origin.** Halaman statis mem-proxy `/api/` ke container API, jadi tidak ada CORS,
   tidak perlu subdomain API, dan tidak ada mixed content. `data-url="/"` di `index.html`.
-- **Media tidak di docroot.** File upload hanya bisa diambil lewat `GET /api/media?f=<32 hex>`
-  (nama acak), sehingga tidak bisa ditebak atau di-list.
+- **Media tidak di docroot.** URL publik tetap `GET /api/media?f=<32 hex>` (nama acak), tetapi PHP
+  hanya memvalidasi lalu menyerahkan byte ke nginx lewat `X-Accel-Redirect: /_media/<user>/<file>`.
+  Lokasi `/_media/` bertanda `internal` (tidak bisa diakses langsung) dan mendukung Range/206.
 - **Konten adalah JSON.** Semua teks/foto/lagu disimpan di `invitations.content_draft` /
   `content_published`; frontend merender dari situ, bukan hardcode di HTML.
 
@@ -145,10 +165,10 @@ sequenceDiagram
     participant A as API (PHP-FPM)
     participant D as PostgreSQL
 
-    T->>W: GET /?to=Nama&g=slug&k=access_key
+    T->>W: GET /?to=Nama&g=slug&t=public_token
     W-->>T: index.html + dist/guest.js
-    T->>A: GET /api/v2/config (x-access-key)
-    A->>D: SELECT users.access_key
+    T->>A: GET /api/v2/config (x-access-token / x-access-key)
+    A->>D: SELECT invitations.public_token
     A-->>T: konfigurasi (timezone, flag)
     T->>A: GET /api/v2/content
     A->>D: SELECT invitations.content_published
@@ -156,9 +176,10 @@ sequenceDiagram
     T->>A: GET /api/v2/guest?g=slug
     A->>D: UPDATE guests SET opened_at, visit_count+1
     A-->>T: id, name, opened_at, visit_count
-    T->>W: GET /api/media?f=<32 hex>
-    W->>A: proxy /api/
-    A-->>T: gambar (webp/jpeg, sudah dikompres GD)
+    T->>A: GET /api/media?f=<32 hex> (HTTP Range bila audio/video)
+    A->>A: validasi kepemilikan + mime
+    A-->>W: X-Accel-Redirect /_media/<user>/<file>
+    W-->>T: byte file dari mount read-only (200/206)
     Note over T: cover tampil → Open Invitation → konten, reveal, musik
 ```
 
@@ -218,7 +239,6 @@ sequenceDiagram
 ├── frontend/                 # halaman tamu + CMS (statis)
 │   ├── index.html            # halaman undangan (data-key = access key, isi sendiri)
 │   ├── admin.html            # Studio Undangan
-│   ├── dashboard.html        # dashboard lama (legacy)
 │   ├── css/                  # theme.css, guest.css, cms.css
 │   ├── js/
 │   │   ├── guest.js          # entry halaman tamu
@@ -229,7 +249,8 @@ sequenceDiagram
 │   │   └── libs/             # loader, util
 │   ├── assets/               # fonts (53 keluarga woff2), icons, images
 │   ├── tools/                # fetch-fonts.mjs, og-sync.py
-│   ├── nginx.conf            # CSP, gzip, cache, proxy /api/
+│   ├── nginx.conf            # CSP, gzip, cache, limit_req, proxy /api/
+│   ├── security-headers.conf # snippet header keamanan (di-include tiap location)
 │   ├── Dockerfile            # node:20 build → nginx:alpine
 │   └── docker-compose.yml
 ├── api/                      # REST API (Kamu Framework)
@@ -239,6 +260,7 @@ sequenceDiagram
 │   ├── app/Support/          # InvitationContent (skema + default + normalize)
 │   ├── database/schema/      # migrasi + cms.sql
 │   ├── routes/api.php
+│   ├── api/php-fpm-tuning.conf # override pool: worker, timeout
 │   ├── docker/{php,nginx}/   # Dockerfile php:8.2-fpm + default.conf
 │   └── docker-compose.yml    # db + app + nginx
 ├── wa-gateway/               # gateway WhatsApp (Baileys)
@@ -263,7 +285,7 @@ PostgreSQL 16, 9 tabel (`api/database/schema/`):
 | Tabel | Isi |
 |---|---|
 | `users` | Pemilik undangan: email, password (bcrypt), `access_key` (dipakai `data-key`), timezone, izin fitur |
-| `invitations` | `content_draft` / `content_published` (JSON), `version`, `is_live`, `published_at` |
+| `invitations` | `content_draft` / `content_published` (JSON), `version`, `is_live`, `published_at`, `public_token` (48 hex, dipakai tautan tamu) |
 | `media` | Metadata upload: nama acak, mime, size, `kind`, width/height |
 | `guests` | Tamu: `slug` unik, nama, telepon, kategori, catatan, `sent_at`, `opened_at`, `visit_count` |
 | `comments` | Ucapan & RSVP: `presence`, isi, `parent_id` (balasan), `guest_id` |
@@ -308,8 +330,17 @@ GET    /api/stats                      statistik ucapan
 PUT    /api/key                        rotasi access key (hati-hati: data-key harus ikut diganti)
 ```
 
-Semua endpoint API mewajibkan header `x-access-key` (tamu) atau `Authorization: Bearer <JWT>`
-(admin), plus User-Agent ≥ 64 karakter (`IpUserAgentMiddleware`). Pengecualian: `/` dan `/health`.
+Semua endpoint API mewajibkan salah satu kredensial berikut, plus User-Agent ≥ 64 karakter
+(`IpUserAgentMiddleware`); pengecualian: `/` dan `/health`.
+
+| Kredensial | Header | Scope |
+|---|---|---|
+| Token publik undangan | `x-access-token: <48 hex>` | tamu (konten, komentar, tracking) |
+| Access key lama | `x-access-key: <50 alnum>` | tamu — dipertahankan untuk tautan yang sudah tersebar |
+| JWT admin | `Authorization: Bearer <jwt>` | penuh, termasuk `/api/admin/*` |
+
+Middleware mencoba `x-access-token` lebih dulu, lalu jatuh ke `x-access-key`, sehingga kedua format
+tautan hidup berdampingan.
 
 ---
 
@@ -330,6 +361,14 @@ chown -R 33:33 storage                         # kalau upload gagal (www-data = 
 > Runner `php saya migrasi` mengeksekusi **semua** file migrasi setiap kali (tanpa tabel pelacak),
 > jadi untuk database yang sudah hidup gunakan DDL idempoten `database/schema/cms.sql` lewat `psql`.
 
+Image API memakai `.dockerignore` + **BuildKit secret** untuk `.env` (dipakai `php saya view:cache`
+saat build), jadi kredensial tidak pernah masuk layer image. Build butuh BuildKit aktif:
+
+```bash
+DOCKER_BUILDKIT=1 docker compose build app
+docker run --rm --entrypoint sh undangan-api-app -c 'ls /var/www/.env'   # harus "No such file"
+```
+
 ### 8.2 Halaman undangan + CMS
 
 ```bash
@@ -344,6 +383,9 @@ Sebelum dipakai, sesuaikan `frontend/index.html`:
 - `data-key` → access key milik user undangan (dari `users.access_key` / panel Akun)
 - `data-url="/"` → biarkan relatif; nginx mem-proxy `/api/` ke container API
 - nama domain pada tag SEO/OG (`meta.url`, `canonical`)
+
+`dashboard.html` (dashboard template lama) sudah dihapus — CMS sepenuhnya di `admin.html`.
+Route `/dashboard` mengembalikan 404.
 
 ### 8.3 WA gateway (opsional)
 
@@ -371,6 +413,19 @@ docker compose up -d --build
 - **Cache build Docker** cepat membengkak setelah beberapa kali build: `docker builder prune -f`.
 - **Media**: upload dikompres otomatis (resize sisi terpanjang 1600 → WebP q82) lewat GD;
   tombol ↻ di panel Media mengoptimasi file lama. Nama file tidak diubah agar URL tetap valid.
+  Penyajian byte dilakukan nginx (`X-Accel-Redirect`), bukan `readfile()` PHP.
+- **Gambar halaman** di produksi sudah dinormalkan ke WebP q80 (sisi panjang 1200–1400) dan audio
+  ke 96 kbps stereo 44,1 kHz; kalau mengganti file secara manual, perbarui juga `size`/`width`/`height`
+  di tabel `media` (ETag = `md5(filename|size)`).
+- **Backup** (`scripts/undangan-backup.sh`): `pg_dump -Fc` tiap jam, arsip `storage/uploads` harian,
+  retensi 14 hari. Salinannya ditarik ke host lain (`pull-backup.sh`, retensi 21 hari).
+- **Monitoring** (`scripts/undangan-health.sh`): probe `/api/v2/config` tiap 2 menit; alert setelah
+  3 kegagalan berturut dan notifikasi saat pulih. Endpoint `/health` statis tidak dipakai karena
+  tidak menyentuh API/DB.
+- **Rollback**: tag image sebelum deploy (`docker tag <image> <image>:prev-<tanggal>`); untuk stack API
+  `docker compose up -d app` setelah me-retag `:prev` sudah cukup.
+- **Dashboard lama dihapus**: `frontend/dashboard.html`, entri `build:public` di `package.json`, dan
+  route `/dashboard` (kini 404).
 
 ---
 
@@ -378,14 +433,25 @@ docker compose up -d --build
 
 - `.env` (berisi `DB_PASS`, `JWT_KEY`, `APP_KEY`, `WA_TOKEN`) **tidak** ada di repo — ambil dari `.env.example`.
 - `frontend/index.html` di repo memakai placeholder `data-key="ISI_DENGAN_ACCESS_KEY_UNDANGAN"`.
-- Access key bersifat publik (tertanam di halaman) dan hanya memberi akses tamu, **bukan** admin;
-  admin memakai JWT dari `POST /api/session`.
-- Middleware menolak request API dengan User-Agent < 64 karakter atau IP tidak valid (anti-bot sederhana).
-- Rate limit opsional (aktif bila `MONGODB_URI` diset; default 120 request / 24 jam per IP).
-- Media hanya disajikan lewat API dengan nama file acak 32 hex — bukan docroot yang bisa di-list.
-- Validasi upload: foto ≤ 12 MB, audio ≤ 20 MB, video ≤ 40 MB (`client_max_body_size 64m`).
+- **Kredensial tidak masuk image**: `.dockerignore` mengecualikan `.env`; build memakai BuildKit
+  secret. Verifikasi: `docker run --rm --entrypoint sh <image> -c 'ls /var/www/.env'` → tidak ada file.
+- **Tautan tamu memakai token per undangan** (`invitations.public_token`, 48 hex) yang hanya memberi
+  scope tamu. `access_key` tetap diterima untuk kompatibilitas tautan lama, tetapi tidak lagi dicetak
+  di tautan baru.
+- Admin memakai JWT dari `POST /api/session`; tidak ada kolom role — setiap user aktif dianggap admin,
+  karena instalasi ini satu pasangan. Nonaktifkan akun seed sebelum dipakai publik.
+- **Rate limit** di nginx (`limit_req`): 6/menit untuk login, 2/detik untuk kirim komentar.
+  Middleware `RateLimitMiddleware` (MongoDB) tetap ada tetapi nonaktif bila env Mongo kosong.
+- **Header keamanan** dijaga satu snippet dan di-include di setiap `location` yang punya `add_header`
+  sendiri — memeriksa config saja tidak cukup, verifikasi dengan `curl -sSI`.
+- Media hanya disajikan lewat API dengan nama file acak 32 hex, dan byte-nya dari lokasi `internal`
+  nginx (tidak bisa diakses langsung).
+- Validasi upload: foto ≤ 12 MB, audio ≤ 20 MB, video ≤ 40 MB (`client_max_body_size 64m`);
+  `request_terminate_timeout=300s` memberi ruang upload lambat tanpa menggantung worker selamanya.
 - Rotasi access key (`PUT /api/key`) memutus hidrasi konten & komentar sampai `index.html`
   diperbarui dan di-rebuild — jangan dilakukan tanpa mengganti `data-key` sekaligus.
+- Rotasi `DB_PASS` **wajib** diikuti pembaruan `.env` di `wa-gateway`; kalau tidak, gateway kehilangan
+  koneksi DB dan sesi WhatsApp perlu di-pair ulang.
 
 ---
 

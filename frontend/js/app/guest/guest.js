@@ -365,8 +365,11 @@ export const guest = (() => {
         config = storage('config');
         information = storage('information');
 
-        const token = document.body.getAttribute('data-key');
         const params = new URLSearchParams(window.location.search);
+
+        // ?t= (token publik) untuk tautan baru, ?k= (access_key) tautan lama.
+        const urlToken = params.get('t') ?? params.get('k');
+        const token = urlToken ?? document.body.getAttribute('data-key');
 
         // Hidrasi konten CMS sebelum media dihitung progress-nya.
         await content.load(token, params.get('preview'));
@@ -383,7 +386,7 @@ export const guest = (() => {
         const guestSlug = params.get('g');
         if (guestSlug && token) {
             try {
-                const res = await request(HTTP_GET, '/api/v2/guest?g=' + encodeURIComponent(guestSlug)).token(params.get('k') ?? token).withTimeout(6000).send();
+                const res = await request(HTTP_GET, '/api/v2/guest?g=' + encodeURIComponent(guestSlug)).token(token).withTimeout(6000).send();
                 if (res?.data?.id) {
                     information.set('guest_id', res.data.id);
                 }
@@ -425,7 +428,7 @@ export const guest = (() => {
                 img.load();
             }
 
-            session.guest(params.get('k') ?? token).then(({ data }) => {
+            session.guest(token).then(({ data }) => {
                 document.dispatchEvent(new Event('undangan.session'));
                 progress.complete('config');
 
@@ -441,7 +444,23 @@ export const guest = (() => {
                     .then(() => progress.complete('comment'))
                     .catch(() => progress.invalid('comment'));
 
-            }).catch(() => progress.invalid('config'));
+            }).catch(() => {
+                // Fail-open: API gagal (restart container / deploy / jaringan tamu).
+                // Jangan kunci tamu di layar loading — tampilkan markup statis.
+                // Jangan fetch gambar dari API yang sedang mati: cukup tandai
+                // selesai supaya overlay terangkat dan markup statis tampil.
+                document.querySelectorAll('img').forEach((el) => {
+                    if (el.dataset.pLoaded !== '1') {
+                        el.dataset.pLoaded = '1';
+                        progress.complete('image');
+                    }
+                });
+                try { vid.load(); } catch (e) { console.warn(e); }
+                try { aud.load(); } catch (e) { console.warn(e); }
+                try { lib.load({ confetti: false }); } catch (e) { console.warn(e); }
+                progress.complete('config');
+                progress.complete('comment');
+            });
         }
     };
 

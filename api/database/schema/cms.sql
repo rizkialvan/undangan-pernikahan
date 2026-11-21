@@ -47,3 +47,8 @@ CREATE INDEX IF NOT EXISTS comments_guest_id_idx ON comments(guest_id);
 -- Pelacakan kunjungan link personal (?g=slug): diisi oleh GuestController::track()
 ALTER TABLE guests ADD COLUMN IF NOT EXISTS opened_at TIMESTAMP NULL;
 ALTER TABLE guests ADD COLUMN IF NOT EXISTS visit_count INTEGER NOT NULL DEFAULT 0;
+-- Token publik per undangan (menggantikan access_key pada tautan tamu)
+create extension if not exists pgcrypto;
+alter table invitations add column if not exists public_token text;
+update invitations set public_token = encode(gen_random_bytes(24), 'hex') where public_token is null;
+create unique index if not exists invitations_public_token_key on invitations (public_token);

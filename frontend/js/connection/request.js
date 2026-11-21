@@ -475,7 +475,10 @@ export const request = (method, path) => {
                 return this;
             }
 
+            // Token bisa berupa access_key (lama) atau public_token (baru).
+            // Kirim keduanya; server memakai yang cocok, jadi tautan lama tetap jalan.
             req.headers.append('x-access-key', token);
+            req.headers.append('x-access-token', token);
             return this;
         },
         /**

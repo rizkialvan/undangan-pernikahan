@@ -2,6 +2,7 @@
 
 namespace App\Middleware;
 
+use App\Models\Invitation;
 use App\Models\User;
 use App\Response\JsonResponse;
 use Closure;
@@ -45,6 +46,26 @@ final class AuthMiddleware implements MiddlewareInterface
             }
 
             return $next($request);
+        }
+
+        // Token publik per undangan (menggantikan access_key pada tautan tamu).
+        // Kalau tidak cocok, JANGAN gagal di sini: lanjut ke x-access-key supaya
+        // tautan lama (&k=) yang sudah tersebar tetap berfungsi.
+        $publicToken = trim((string) $request->server->get('HTTP_X_ACCESS_TOKEN'));
+
+        if ($publicToken !== '' && preg_match('/^[a-zA-Z0-9]{32,64}$/', $publicToken)) {
+            $invitation = Invitation::where('public_token', $publicToken)->limit(1)->first();
+
+            if ($invitation->exist()) {
+                $user = User::find(intval($invitation->user_id));
+
+                if ($user->exist() && $user->isActive()) {
+                    $user->setAsNonAdmin();
+                    Auth::login($user);
+
+                    return $next($request);
+                }
+            }
         }
 
         $valid = Validator::make(

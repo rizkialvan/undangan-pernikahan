@@ -24,26 +24,32 @@ export const audio = (() => {
          */
         let audioEl = null;
 
-        try {
+        // Lagu (2,3 MB) tidak lagi diunduh saat boot: itu yang menahan layar
+        // loading. Audio baru diambil setelah tamu menekan "Open Invitation".
+        progress.complete('audio', true);
+
+        /**
+         * @returns {Promise<HTMLAudioElement>}
+         */
+        const ensure = async () => {
+            if (audioEl) {
+                return audioEl;
+            }
+
             audioEl = new Audio(await cache('audio').withForceCache().get(url, progress.getAbort()));
             audioEl.loop = true;
             audioEl.muted = false;
             audioEl.autoplay = false;
             audioEl.controls = false;
 
-            // Volume dari CMS (0-100). Tanpa atribut -> volume default browser.
             const volume = document.body.getAttribute('data-audio-volume');
             const level = Number(volume);
-
             if (volume !== null && Number.isFinite(level) && level >= 0 && level <= 100) {
                 audioEl.volume = level / 100;
             }
 
-            progress.complete('audio');
-        } catch {
-            progress.invalid('audio');
-            return;
-        }
+            return audioEl;
+        };
 
         let isPlay = false;
         const music = document.getElementById('button-music');
@@ -51,20 +57,24 @@ export const audio = (() => {
         /**
          * @returns {Promise<void>}
          */
-        const play = async () => {
+        const play = async (silent = false) => {
             if (!navigator.onLine || !music) {
                 return;
             }
 
             music.disabled = true;
             try {
+                await ensure();
                 await audioEl.play();
                 isPlay = true;
                 music.innerHTML = statePlay;
             } catch (err) {
-                // Autoplay bisa ditolak browser; tombol harus tetap bisa diklik manual.
+                // Autoplay bisa ditolak browser; tombol tetap bisa diklik manual.
+                // Percobaan otomatis saat membuka undangan tidak perlu memunculkan alert.
                 isPlay = false;
-                util.notify(err).error();
+                if (!silent) {
+                    util.notify(err).error();
+                }
             } finally {
                 music.disabled = false;
             }
@@ -75,6 +85,9 @@ export const audio = (() => {
          */
         const pause = () => {
             isPlay = false;
+            if (!audioEl) {
+                return;
+            }
             audioEl.pause();
             music.innerHTML = statePause;
         };
@@ -83,7 +96,7 @@ export const audio = (() => {
             music.classList.remove('d-none');
 
             if (playOnOpen) {
-                play();
+                play(true);
             }
         });
 

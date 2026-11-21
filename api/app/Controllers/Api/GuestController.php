@@ -38,12 +38,19 @@ class GuestController extends Controller
 
     private function link(string $name, string $slug): string
     {
-        $key = (string) Auth::user()->access_key;
+        $invitation = Invitation::where('user_id', intval(Auth::id()))->limit(1)->first();
+        $token = $invitation->exist() ? (string) ($invitation->public_token ?? '') : '';
+
+        // Tautan baru memakai token publik; access_key hanya fallback kalau
+        // undangan belum punya token.
+        $credential = $token !== ''
+            ? '&t=' . rawurlencode($token)
+            : '&k=' . rawurlencode((string) Auth::user()->access_key);
 
         return $this->baseUrl()
             . '/?to=' . rawurlencode($name)
             . '&g=' . rawurlencode($slug)
-            . '&k=' . rawurlencode($key);
+            . $credential;
     }
 
     /**

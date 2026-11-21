@@ -51,13 +51,19 @@ class WaController extends Controller
 
     private function link(string $name, string $slug): string
     {
-        $key = (string) Auth::user()->access_key;
+        $invitation = Invitation::where('user_id', intval(Auth::id()))->limit(1)->first();
+        $public = $invitation->exist() ? (string) ($invitation->public_token ?? '') : '';
+
+        $credential = $public !== ''
+            ? '&t=' . rawurlencode($public)
+            : '&k=' . rawurlencode((string) Auth::user()->access_key);
+
         $token = $this->shareToken();
 
         return $this->baseUrl()
             . '/?to=' . rawurlencode($name)
             . '&g=' . rawurlencode($slug)
-            . '&k=' . rawurlencode($key)
+            . $credential
             . ($token !== '' ? '&p=' . $token : '');
     }
 

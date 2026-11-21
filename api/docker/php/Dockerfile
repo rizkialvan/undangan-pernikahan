@@ -12,6 +12,7 @@ RUN docker-php-ext-install pdo zip pdo_pgsql pgsql opcache intl bcmath mbstring 
 RUN docker-php-ext-enable pdo zip pdo_pgsql pgsql opcache intl bcmath mbstring gd exif
 
 COPY /api/php.ini /usr/local/etc/php/conf.d/opcache.ini
+COPY /api/php-fpm-tuning.conf /usr/local/etc/php-fpm.d/zz-tuning.conf
 
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
@@ -24,8 +25,8 @@ RUN chown -R www-data:www-data /var/www && \
 
 RUN composer install --prefer-dist --no-dev --optimize-autoloader --no-interaction --ignore-platform-req=ext-mongodb
 
-RUN php saya key
-RUN php saya view:cache
+RUN --mount=type=secret,id=env,target=/var/www/.env \
+    php saya view:cache
 
 USER www-data
 
