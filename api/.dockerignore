@@ -1,0 +1,25 @@
+# Jangan pernah masukkan data sensitif / runtime ke dalam image.
+.env
+.env.*
+!.env.example
+
+# Media & upload tamu (dipakai lewat bind mount ./storage)
+storage
+
+# Hasil build/runtime
+cache/env/*.php
+cache/log/*
+cache/queue/*
+cache/routes/*
+cache/views/*
+vendor
+node_modules
+
+# Riwayat & arsip
+.git
+.gitignore
+.backup-*
+*.log
+*.tar.gz
+*.sql
+*.dump
